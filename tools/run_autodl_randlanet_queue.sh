@@ -14,7 +14,7 @@ for seed in 123 2026; do
   log="$LOGROOT/randlanet_seed${seed}.log"
   mkdir -p "$run"
   echo "[$(date '+%F %T')] START seed=$seed" >> "$STATUS"
-  python RandLANet_Ours/train_paper_split.py --train_data pointgroup_format/train --val_data pointgroup_format/val --test_data pointgroup_format/test --epochs 200 --patience 30 --batch 2 --workers 4 --seed "$seed" --save_dir "$run" --evaluate_test > "$log" 2>&1
+  /root/miniconda3/bin/python RandLANet_Ours/train_paper_split.py --train_data pointgroup_format/train --val_data pointgroup_format/val --test_data pointgroup_format/test --epochs 200 --patience 30 --batch 2 --workers 4 --seed "$seed" --save_dir "$run" --evaluate_test > "$log" 2>&1
   rc=$?
   echo "[$(date '+%F %T')] END seed=$seed rc=$rc" >> "$STATUS"
   if [ "$rc" -ne 0 ]; then
@@ -22,7 +22,7 @@ for seed in 123 2026; do
     exit "$rc"
   fi
 done
-python - <<'PY'
+/root/miniconda3/bin/python - <<'PY'
 import json, shutil
 from pathlib import Path
 root=Path('/root/autodl-tmp/runs')
@@ -40,3 +40,4 @@ shutil.copy2(root/best['run']/'history.csv',out/'history.csv')
 print(json.dumps({'selected':best,'candidates':rows},indent=2))
 PY
 echo "[$(date '+%F %T')] ALL DONE best copied to $RUNROOT/randlanet_final/best.pth" >> "$STATUS"
+
