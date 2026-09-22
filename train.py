@@ -1,4 +1,4 @@
-import os
+﻿import os
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
@@ -161,10 +161,10 @@ def train(args):
     train_dataset = CabbageDataset(DATA_PATH, npoints=NPOINTS, split='train')
     
     # Check for validation set, otherwise split train
-    val_path = os.path.join(DATA_PATH, 'test')
+    val_path = os.path.join(DATA_PATH, 'val')
     if os.path.exists(val_path) and len(os.listdir(val_path)) > 0:
-        val_dataset = CabbageDataset(DATA_PATH, npoints=NPOINTS, split='test')
-        logger.info(f"Using 'test' folder as validation set ({len(val_dataset)} samples).")
+        val_dataset = CabbageDataset(DATA_PATH, npoints=NPOINTS, split='val')
+        logger.info(f"Using 'val' folder as validation set ({len(val_dataset)} samples).")
     else:
         logger.warning("No 'test' folder found. Splitting 'train' dataset 90/10 for validation.")
         train_size = int(0.9 * len(train_dataset))
@@ -262,3 +262,4 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(args.save_path), exist_ok=True)
 
     train(args)
+
