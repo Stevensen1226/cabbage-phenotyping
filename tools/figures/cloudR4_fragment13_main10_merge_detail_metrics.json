@@ -1,0 +1,31 @@
+{
+  "scene": "cloudR4",
+  "source_coarse": "output/step_preview/cloudR4_randla_raw_semantic/cloudR4_step4a_cluster_coarse.ply",
+  "source_split": "output/step_preview/cloudR4_randla_raw_semantic/cloudR4_step4b_skeleton_split.ply",
+  "source_merge": "output/step_preview/cloudR4_randla_raw_semantic/cloudR4_step4c_fragment_merged.ply",
+  "target_label_before": 10,
+  "fragment_label_before": 13,
+  "label_after": 10,
+  "target_points": 7201,
+  "fragment_points": 1017,
+  "merged_points": 8218,
+  "fragment_fraction_pct": 12.375273789243124,
+  "fragment_span_m": 0.31036322613694234,
+  "target_span_m": 0.6141262243188415,
+  "centroid_distance_m": 0.27583887832760784,
+  "axis_angle_deg": 28.673633454553137,
+  "minimum_gap_m": 0.002321632687413847,
+  "fraction_below_5mm_pct": 1.27826941986234,
+  "fraction_below_10mm_pct": 4.523107177974435,
+  "fraction_below_20mm_pct": 11.799410029498524,
+  "criteria": {
+    "fragment_span_limit_m": 0.45,
+    "centroid_distance_limit_m": 0.3,
+    "axis_angle_limit_deg": 50.0
+  },
+  "exported_before_ply": "output/step_preview/cloudR4_randla_raw_semantic/cloudR4_fragment13_main10_before_merge.ply",
+  "exported_after_ply": "output/step_preview/cloudR4_randla_raw_semantic/cloudR4_fragment13_main10_after_merge.ply",
+  "output_png": "tools/figures/cloudR4_fragment13_main10_merge_detail.png",
+  "output_pdf": "tools/figures/cloudR4_fragment13_main10_merge_detail.pdf",
+  "output_svg": "tools/figures/cloudR4_fragment13_main10_merge_detail.svg"
+}

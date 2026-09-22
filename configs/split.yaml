@@ -1,0 +1,29 @@
+# 评估数据集 Val/Test 划分 (种子=42, 按实例数分层)
+# 用法:
+#   python evaluate.py --config configs/default.yaml --input evalaute_test --split val   # 调参
+#   python evaluate.py --config configs/default.yaml --input evalaute_test --split test  # 最终报告
+
+val:
+  - cloudR1    # 8 instances (small)
+  - cloudR3    # 15 instances (medium)
+  - cloudR6    # 11 instances (small)
+  - cloudR10   # 31 instances (large)
+  - cloudR11   # 15 instances (medium)
+  - cloudR16   # 15 instances (medium)
+  - cloudR17   # 14 instances (medium)
+
+test:
+  - cloudR2    # 8 instances (small)
+  - cloudR4    # 10 instances (small)
+  - cloudR5    # 9 instances (small)
+  - cloudR7    # 8 instances (small)
+  - cloudR8    # 18 instances (medium)
+  - cloudR9    # 20 instances (medium)
+  - cloudR12   # 30 instances (large)
+  - cloudR13   # 26 instances (large)
+  - cloudR14   # 19 instances (medium)
+  - cloudR15   # 16 instances (medium)
+  - cloudR18   # 16 instances (medium)
+  - cloudR19   # 14 instances (medium)
+  - cloudR20   # 19 instances (medium)
+  - cloudR21   # 11 instances (small)

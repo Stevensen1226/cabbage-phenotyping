@@ -1,0 +1,97 @@
+evaluation:
+  iou_thresh: 0.5
+instance:
+  dbscan:
+    eps: 0.05
+    min_samples: 10
+  euclidean:
+    min_cluster_size: 50
+    tolerance: 0.05
+  fragment_voting:
+    discard_threshold: 500
+    enable: true
+    merge_threshold: 1500
+  graph_based:
+    distance_threshold: 0.05
+    linkage: average
+    n_neighbors: 30
+  hdbscan:
+    min_cluster_size: 500
+    min_samples: 10
+  max_cluster_points: 100000
+  meanshift:
+    bandwidth: 0.25
+    bin_seeding: true
+    min_bin_freq: 10
+  method: watershed_3d
+  min_cluster_points: 2000
+  pca_split:
+    abnormal_aspect_ratio: 1.6
+    abnormal_diameter: 0.6
+    enable: false
+    merge_max_angle: 50
+    merge_max_dist: 0.30
+    merge_min_diameter: 0.45
+    min_peak_dist_m: 0.3
+    skeleton_bins: 15
+    valley_depth_rel: 0.9
+  pg_expand:
+    radius: 0.02
+  precluster_filter:
+    enable: true
+    eps: 0.03
+    min_points: 10
+    post_density_check:
+      enable: true
+      min_linear_density: 500
+      min_pts_absolute: 100
+  watershed_3d:
+    dilation_iters: 1
+    max_seeds: 0
+    max_voxels: 50000000
+    min_seed_distance: 0.3
+    peak_threshold_abs_m: 0.006
+    peak_threshold_rel: 0.05
+    smoothing_sigma: 1
+    voxel_resolution: 0.01
+pipeline:
+  deterministic: true
+  output_dir: output
+  seed: 0
+  strict_deterministic: false
+  voxel_size: 0.005
+preprocess:
+  ground_removal:
+    enable: true
+    fit_percentile: 15
+    ransac_thresh: 0.015
+    remove_thresh: 0.02
+  sor_enable: true
+  sor_neighbors: 10
+  sor_std_ratio: 3.5
+segmentation:
+  backbone: pointnet2
+  block_inference:
+    block_size: 2.0
+    enable: true
+    max_single_extent: 8.0
+    merge_iou_thresh: 0.25
+    overlap: 0.5
+  iach:
+    eps: 0.05
+    min_samples: 100
+  method: hybrid
+  pg_npoint_thresh: 20
+  pg_score_thresh: 0.05
+  pg_sem_thresh: 0
+  pointgroup_config: PointGroup_Ours/config/pointgroup_cabbage.yaml
+  post_semantic_filter:
+    enable: false
+    radius_outlier_min_neighbors: 8
+    radius_outlier_radius: 0.03
+    z_percentile: 0
+  proposal_selection: greedy
+  softgroup_config: SoftGroup_Ours/config/softgroup_cabbage.yaml
+traits:
+  height_percentile_high: 99
+  height_percentile_low: 1

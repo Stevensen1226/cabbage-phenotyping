@@ -1,0 +1,22 @@
+{
+  "scene": "cloudR5",
+  "source_split_file": "output/step_preview/cloudR5/cloudR5_step4b_skeleton_split.ply",
+  "source_merge_file": "output/step_preview/cloudR5/cloudR5_step4c_fragment_merged.ply",
+  "target_label_before_merge": 5,
+  "fragment_label_before_merge": 8,
+  "target_points": 12630,
+  "fragment_points": 710,
+  "merged_points": 13340,
+  "fragment_L1_m": 0.25894706914443266,
+  "centroid_distance_m": 0.27082484649183086,
+  "axis_angle_deg": 20.407478439325647,
+  "minimum_gap_m": 0.04087384127970159,
+  "fraction_below_2cm": 0.0,
+  "after_label": 5,
+  "exported_ply": {
+    "target": "output/step_preview/cloudR5/cloudR5_target5_before_merge.ply",
+    "fragment": "output/step_preview/cloudR5/cloudR5_fragment8_before_merge.ply",
+    "before_colored": "output/step_preview/cloudR5/cloudR5_before_merge_colored.ply",
+    "after_merged": "output/step_preview/cloudR5/cloudR5_merged_after_merge.ply"
+  }
+}

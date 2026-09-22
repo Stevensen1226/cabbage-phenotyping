@@ -1,0 +1,10 @@
+{
+  "fragment_points": 700,
+  "target_points": 4500,
+  "fragment_L1_m": 0.33720853383657734,
+  "centroid_distance_m": 0.2647590393960983,
+  "axis_angle_deg": 5.407710930871922,
+  "minimum_gap_m": 0.004059507949773936,
+  "proximal_fraction_below_2cm": 0.015714285714285715,
+  "merged_points": 5200
+}

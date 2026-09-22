@@ -1,0 +1,77 @@
+GENERAL:
+  task: train
+  manual_seed: 123
+  model_dir: model/softgroup/softgroup.py
+  dataset_dir: dataset/cabbage_dataset.py
+
+DATA:
+  data_root: /home/stevensen/Cabbage/e_data/pointgroup_format/train
+  dataset: cabbage_dataset
+  filename_suffix: .pth
+
+  classes: 2
+  ignore_label: -100
+
+  input_channel: 3
+  scale: 50   # voxel_size = 1 / scale, scale 50(2cm)
+  batch_size: 4
+  full_scale: [128, 512]
+  max_npoint: 250000
+  mode: 4   # 4=mean
+
+STRUCTURE:
+  model_name: softgroup
+  m: 16 # channels
+  block_residual: True
+  block_reps: 2
+  
+  use_coords: True
+
+TRAIN:
+  epochs: 384
+  train_workers: 4
+  optim: Adam
+  lr: 0.001
+  step_epoch: 384
+  multiplier: 0.5
+  momentum: 0.9
+  weight_decay: 0.0001
+  save_freq: 16
+  loss_weight: [1.0, 1.0, 1.0, 1.0]
+  class_weight: [0.6, 1.0]   # 背景:甘蓝
+
+  fg_thresh: 0.75
+  bg_thresh: 0.25
+
+  score_scale: 50
+  score_fullscale: 14
+  score_mode: 4
+
+  pretrain_path:
+  pretrain_module: []
+  fix_module: []
+
+GROUP:
+  cluster_radius: 0.03       # SoftGroup 聚类半径
+  cluster_meanActive: 50
+  cluster_shift_meanActive: 300
+  cluster_npoint_thre: 30
+  prepare_epochs: 128
+  # SoftGroup 特有: 自顶向下贪心选择
+  topdown_score_thresh: 0.05  # 最小得分
+  topdown_overlap_thresh: 0.5 # 重叠阈值触发点移除
+
+TEST:
+  split: val
+  test_epoch: 384
+  test_workers: 16
+  test_seed: 567
+
+  TEST_NMS_THRESH: 0.3
+  TEST_SCORE_THRESH: 0.09
+  TEST_NPOINT_THRESH: 100
+
+  eval: True
+  save_semantic: False
+  save_pt_offsets: False
+  save_instance: False

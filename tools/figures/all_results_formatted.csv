@@ -1,0 +1,28 @@
+Method,Backbone,Clustering,SARR_SS,Instance_Precision,Instance_Recall,Instance_F1,Instance_mIoU,Semantic_mIoU,MAE_Count
+RandLA-Net + meanshift,RandLA-Net,meanshift,No,0.942,0.826,0.879,0.773,0.818,2.261
+RandLA-Net + meanshift + SARR-SS,RandLA-Net,meanshift,Yes,0.937,0.921,0.928,0.785,0.815,0.652
+RandLA-Net + hdbscan,RandLA-Net,hdbscan,No,0.228,0.073,0.108,0.452,0.818,13.435
+RandLA-Net + hdbscan + SARR-SS,RandLA-Net,hdbscan,Yes,0.873,0.824,0.842,0.778,0.820,1.522
+RandLA-Net + watershed,RandLA-Net,watershed,No,0.671,0.491,0.564,0.707,0.817,4.913
+RandLA-Net + watershed + SARR-SS,RandLA-Net,watershed,Yes,0.887,0.890,0.887,0.768,0.819,1.087
+PointGroup (Top-Down),PointGroup-TD,,No,0.678,0.423,0.512,0.814,0.817,7.217
+PointGroup (Top-Down) + meanshift,PointGroup-TD,meanshift,No,0.787,0.562,0.652,0.790,0.820,5.000
+PointGroup (Top-Down) + hdbscan,PointGroup-TD,hdbscan,No,0.713,0.459,0.553,0.812,0.820,6.478
+PointGroup (Top-Down) + watershed,PointGroup-TD,watershed,No,0.724,0.500,0.589,0.800,0.817,5.391
+PointGroup (Top-Down) + meanshift + SARR-SS,PointGroup-TD,meanshift,Yes,0.959,0.942,0.950,0.813,0.815,0.609
+PointGroup (Top-Down) + hdbscan + SARR-SS,PointGroup-TD,hdbscan,Yes,0.962,0.962,0.962,0.818,0.818,0.609
+PointGroup (Top-Down) + watershed + SARR-SS,PointGroup-TD,watershed,Yes,0.945,0.939,0.942,0.817,0.818,0.652
+PointGroup (NMS),PointGroup-NMS,,No,0.669,0.409,0.501,0.824,0.817,7.391
+PointGroup (NMS) + meanshift,PointGroup-NMS,meanshift,No,0.734,0.517,0.604,0.804,0.818,5.174
+PointGroup (NMS) + hdbscan,PointGroup-NMS,hdbscan,No,0.714,0.461,0.553,0.809,0.818,6.652
+PointGroup (NMS) + watershed,PointGroup-NMS,watershed,No,0.743,0.530,0.615,0.805,0.816,5.087
+PointGroup (NMS) + meanshift + SARR-SS,PointGroup-NMS,meanshift,Yes,0.930,0.929,0.929,0.815,0.818,0.522
+PointGroup (NMS) + hdbscan + SARR-SS,PointGroup-NMS,hdbscan,Yes,0.952,0.942,0.946,0.813,0.818,0.870
+PointGroup (NMS) + watershed + SARR-SS,PointGroup-NMS,watershed,Yes,0.939,0.942,0.940,0.818,0.817,0.565
+PointGroup (IACH),PointGroup-IACH,,No,0.666,0.410,0.501,0.777,0.819,7.435
+PointGroup (IACH) + meanshift,PointGroup-IACH,meanshift,No,0.770,0.557,0.642,0.797,0.814,4.826
+PointGroup (IACH) + hdbscan,PointGroup-IACH,hdbscan,No,0.720,0.453,0.550,0.810,0.817,6.783
+PointGroup (IACH) + watershed,PointGroup-IACH,watershed,No,0.745,0.545,0.625,0.807,0.815,5.000
+PointGroup (IACH) + meanshift + SARR-SS,PointGroup-IACH,meanshift,Yes,0.946,0.940,0.943,0.813,0.818,0.652
+PointGroup (IACH) + hdbscan + SARR-SS,PointGroup-IACH,hdbscan,Yes,0.942,0.942,0.942,0.818,0.818,0.435
+PointGroup (IACH) + watershed + SARR-SS,PointGroup-IACH,watershed,Yes,0.951,0.959,0.954,0.812,0.818,0.565

@@ -1,0 +1,86 @@
+# ============================================================
+#  甘蓝表型项目 — 常用命令速查
+# ============================================================
+
+# >>> 环境初始化 (每次开新终端先运行) <<<
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate pointgroup_blackwell
+export LD_LIBRARY_PATH=/home/stevensen/miniconda3/lib:$LD_LIBRARY_PATH
+CUDA_VISIBLE_DEVICES=0 python train.py --config config/pointgroup_cabbage.yaml
+
+
+#开始训练
+cd /home/stevensen/Cabbage/PointGroup_Ours && bash run_train.sh
+
+
+######
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate pointgroup_blackwell
+export LD_LIBRARY_PATH=/home/stevensen/miniconda3/lib:$LD_LIBRARY_PATH
+cd /home/stevensen/Cabbage/SoftGroup_Ours
+python train.py --config config/softgroup_cabbage.yaml
+
+
+#训练randlanet
+cd /home/stevensen/Cabbage/RandLANet_Ours
+python train.py --epochs 200 --batch 4
+
+
+# 停止训练
+kill $(pgrep -f "train.py")
+
+
+继续训练
+cd /home/stevensen/Cabbage/PointGroup_Ours && bash run_train.sh
+
+# 删除旧模型重新训练
+rm -rf /home/stevensen/Cabbage/PointGroup_Ours/exp/cabbage_dataset/pointgroup/pointgroup_cabbage
+
+# 查看训练进度
+grep "train loss" /home/stevensen/Cabbage/PointGroup_Ours/exp/cabbage_dataset/pointgroup/pointgroup_cabbage/train-*.log | tail -3
+tail -f /home/stevensen/Cabbage/PointGroup_Ours/exp/cabbage_dataset/pointgroup/pointgroup_cabbage/train-*.log
+
+# === 推理 (统一管道) ===
+cd /home/stevensen/Cabbage
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate pointgroup_blackwell
+export LD_LIBRARY_PATH=/home/stevensen/miniconda3/lib:$LD_LIBRARY_PATH
+
+python main.py --input data/unlabel/cloudR1.ply --config configs/default.yaml
+
+
+
+######
+
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate pointgroup_blackwell
+export LD_LIBRARY_PATH=/home/stevensen/miniconda3/lib:$LD_LIBRARY_PATH
+python main.py --input data/unlabel/cloudR4.ply --config configs/default.yaml
+
+
+# === 推理 (三阶段混合脚本, 精细控制) ===
+cd /home/stevensen/Cabbage/PointGroup_Ours
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate pointgroup_blackwell
+export LD_LIBRARY_PATH=/home/stevensen/miniconda3/lib:$LD_LIBRARY_PATH
+
+python ../tools/inference/pointgroup_hybrid_infer.py \
+    --input ../data/unlabel/cloudR2.ply \
+    --output ../output/hybrid \
+    --config config/pointgroup_cabbage.yaml \
+    --skeleton_valley 0.90
+
+# 批量推理
+python ../tools/inference/pointgroup_hybrid_infer.py \
+    --input "../data/unlabel/cloudR*.ply" \
+    --output ../output/hybrid \
+    --config config/pointgroup_cabbage.yaml
+
+# === Windows 查看结果 ===
+# 资源管理器地址栏输入:
+\\wsl$\Ubuntu\home\stevensen\Cabbage\output
+
+
+#evaluateyaml
+# 所有参数默认包含：标签位于倒数第2列，实例ID位于倒数第1列
+python evaluate.py --input evalaute_test --config configs/default.yaml

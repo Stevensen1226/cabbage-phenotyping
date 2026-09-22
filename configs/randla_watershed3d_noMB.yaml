@@ -1,0 +1,66 @@
+pipeline:
+  voxel_size: 0.005
+  output_dir: output
+  seed: 0
+  deterministic: true
+  strict_deterministic: false
+preprocess:
+  sor_enable: true
+  sor_neighbors: 10
+  sor_std_ratio: 3.5
+  ground_removal:
+    enable: true
+    fit_percentile: 15
+    ransac_thresh: 0.015
+    remove_thresh: 0.02
+segmentation:
+  backbone: randlanet
+  method: clustering
+  proposal_selection: nms
+  block_inference:
+    enable: true
+    block_size: 2.0
+    overlap: 0.5
+    max_single_extent: 8.0
+    merge_iou_thresh: 0.25
+instance:
+  method: watershed_3d
+  watershed_3d:
+    voxel_resolution: 0.01
+    min_seed_distance: 0.3
+    smoothing_sigma: 1
+    dilation_iters: 1
+    peak_threshold_abs_m: 0.006
+    peak_threshold_rel: 0.05
+    max_seeds: 0
+    max_voxels: 50000000
+  precluster_filter:
+    enable: true
+    eps: 0.03
+    min_points: 10
+    post_density_check:
+      enable: true
+      min_linear_density: 500
+      min_pts_absolute: 100
+  pca_split:
+    enable: true
+    abnormal_diameter: 0.6
+    abnormal_aspect_ratio: 1.6
+    skeleton_bins: 15
+    min_peak_dist_m: 0.3
+    valley_depth_rel: 0.9
+    merge_min_diameter: 0.45
+    merge_max_dist: 0.30
+    merge_max_angle: 50
+    merge_back: false
+  fragment_voting:
+    enable: true
+    discard_threshold: 500
+    merge_threshold: 1500
+  min_cluster_points: 2000
+  max_cluster_points: 100000
+evaluation:
+  iou_thresh: 0.5
+traits:
+  height_percentile_low: 1
+  height_percentile_high: 99

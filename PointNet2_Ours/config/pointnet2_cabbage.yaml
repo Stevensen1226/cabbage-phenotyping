@@ -1,0 +1,50 @@
+GENERAL:
+  task: train
+  manual_seed: 123
+  model_dir: model/pointnet2_sem.py
+  dataset_dir: dataset/cabbage_dataset.py
+
+DATA:
+  data_root: /home/stevensen/Cabbage/e_data/pointgroup_format/train
+  dataset: cabbage_dataset
+  filename_suffix: .pth
+
+  classes: 2
+  ignore_label: -100
+
+  input_channel: 3
+  scale: 50
+  batch_size: 4
+  full_scale: [128, 512]
+  max_npoint: 250000
+  mode: 4
+
+STRUCTURE:
+  model_name: pointnet2_sem
+  m: 16
+  block_reps: 2
+  use_coords: True
+
+TRAIN:
+  epochs: 384
+  train_workers: 4
+  optim: Adam
+  lr: 0.001
+  step_epoch: 384
+  multiplier: 0.5
+  momentum: 0.9
+  weight_decay: 0.0001
+  save_freq: 16
+  loss_weight: [1.0, 0.0, 0.0, 0.0]  # 仅语义loss
+  class_weight: [0.6, 1.0]
+
+  pretrain_path:
+  pretrain_module: []
+  fix_module: []
+
+TEST:
+  split: val
+  test_epoch: 384
+  test_workers: 16
+  test_seed: 567
+  eval: True

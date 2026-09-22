@@ -1,0 +1,171 @@
+﻿# 卷心菜点云表型流程默认配置（UTF-8）
+
+pipeline:
+  voxel_size: 0.005          # 体素大小（m），用于下采样（main.py 当前默认跳过）
+  output_dir: "output"
+  seed: 0                    # 固定随机种子，保证结果可复现
+  deterministic: true
+  strict_deterministic: false
+
+preprocess:
+  # 点云密度较低时 SOR 容易误删叶片：用更保守的设置
+  sor_enable: true
+  sor_neighbors: 10
+  sor_std_ratio: 3.5
+  # RANSAC 地面去除 (在 PointGroup 语义之前)
+  ground_removal:
+    enable: true              # 地面去除开关
+    method: ransac            # ransac(单平面, 推荐) | dtm_grid(局部地表, 会误删贴地甘蓝)
+    # --- RANSAC 单平面参数 ---
+    fit_percentile: 20         # 用最低 20% 的点拟合
+    ransac_thresh: 0.018       # RANSAC 距离阈值
+    remove_thresh: 0.035       # 距平面 < 3.5cm 移除（温和增强地面过滤）
+    # --- DTM 局部地表参数 (method=dtm_grid 时生效, 实验证明会误删贴地甘蓝, 慎用) ---
+    dtm_grid:
+      cell_size: 0.06
+      z_percentile: 10.0
+      min_points_per_cell: 3
+      max_above_ground: 0.025
+      below_margin: 0.03
+      smooth_sigma_m: 0.05
+      fit_low_percentile: 20
+
+# ============================================================
+# Segmentation 模块 (实例分割管道)
+# backbone: pointnet2 | randlanet (语义模型选择)
+# method 支持模式:
+#   clustering  - 语义 + 传统聚类 (MeanShift/DBSCAN等)
+#   hybrid      - 语义 + offset提案 + 聚类
+#   pointgroup  - 语义 + offset提案 (仅NMS)
+#   none        - 跳过分割
+# proposal_selection: "nms"|"greedy"|"iach" (仅hybrid模式)
+# ============================================================
+segmentation:
+  backbone: "pointnet2"       # pointnet2(PointGroup) | randlanet
+  method: "hybrid"            # clustering|hybrid|pointgroup|none
+  proposal_selection: "nms"   # "nms"|"greedy"|"iach" (仅hybrid模式)
+  
+  # --- 分块推理 (method=hybrid/pointgroup/softgroup 时生效) ---
+  block_inference:
+    enable: true              # 启用分块推理 (大田地自动切块)
+    block_size: 2.0           # 块大小 (m), 建议 1.5~3.0
+    overlap: 0.5              # 块重叠 (m), 建议 0.3~0.5
+    max_single_extent: 8.0    # 田地最大边长 < 此值时不切块 (单次推理)
+    merge_iou_thresh: 0.25    # 跨块实例合并 IoU 阈值
+
+  # --- PointGroup 参数 (method=hybrid 或 pointgroup 时生效) ---
+  pointgroup_config: "PointGroup_Ours/config/pointgroup_cabbage.yaml"
+  # --- SoftGroup 参数 (method=softgroup 时生效) ---
+  softgroup_config: "SoftGroup_Ours/config/softgroup_cabbage.yaml"
+  pg_score_thresh: 0.05       # 实例得分阈值
+  pg_npoint_thresh: 20        # PointGroup 实例最小点数 (30→20)
+  pg_sem_thresh: 0              # argmax (原始高分配置)
+  # IACH 参数 (method=iach 时生效)
+  iach:
+    eps: 0.05                 # DBSCAN 移位后聚类半径 (m)
+    min_samples: 100          # 最小点数
+  # 语义后几何过滤 (去除误判的地面凸起)
+  post_semantic_filter:
+    enable: false               # 密度过滤 (原始高分无此)
+    z_percentile: 0             # RANSAC 已处理，不再用 Z 过滤
+    radius_outlier_radius: 0.03
+    radius_outlier_min_neighbors: 8
+
+instance:
+  method: "watershed_3d"         # meanshift|dbscan|hdbscan|watershed_3d|graph_based|euclidean
+
+  watershed_3d:
+    voxel_resolution: 0.01        # 体素大小（米）。越小越细，但更耗内存/时间
+    min_seed_distance: 0.3       # 更密的种子（更容易分开粘连）；如碎片明显增多再回调到 0.25~0.26
+    smoothing_sigma: 1         # 减小平滑，避免把两个峰抹成一个峰（减少粘连）
+    dilation_iters: 1             # 适度膨胀让 EDT 更稳定；过大可能粘连相邻株
+    peak_threshold_abs_m: 0.006   # 更放宽绝对阈值，增加有效种子以减少粘连
+    peak_threshold_rel: 0.05      # 更放宽相对阈值，减少欠分割
+    max_seeds: 0                  # 如仍碎片多，可尝试限制最大种子数（例如 20~30）
+    max_voxels: 50000000          # 体素总数上限，超过会自动增大 voxel_resolution（不回退到 2D）
+
+  graph_based:
+    n_neighbors: 30         # 50 -> 30. 
+    distance_threshold: 0.05 # 0.45 -> 0.05. 5cm. 之前阈值太大导致所有植株合并成一坨(欠分割)。
+    linkage: "average"      # average link requires a small threshold to separate touching objects.
+
+  meanshift:
+    bandwidth: 0.25       # 0.25m (25cm): 针对甘蓝植株半径优化的核宽。太小过分割，太大欠分割。
+    bin_seeding: true     # 加速计算
+    min_bin_freq: 10
+
+  euclidean:
+    tolerance: 0.05       # 距离阈值 (m)
+    min_cluster_size: 50  # 最小点数
+
+  dbscan:
+    eps: 0.05                 # DBSCAN 邻域半径 (m)
+    min_samples: 10           # 核心点最小邻域点数
+
+  hdbscan:
+    min_cluster_size: 500     # 最小簇大小 (点数)
+    min_samples: 10           # 核心点邻域点数
+
+  # 邻近归入: 将靠近PG提案的未分配点直接归入最近提案
+  pg_expand:
+    radius: 0.02              # 最大归入距离 (m): 缩小以避免吸走漏检甘蓝 (0.05→0.02)
+
+  # Stage2 聚类前离群过滤
+  precluster_filter:
+    enable: true
+    eps: 0.03                 # 邻域半径(m), <此距离算邻居
+    min_points: 10            # 邻居 < 此值 → 离群点丢弃
+    # 聚类后密度校验: 丢弃过于稀疏的簇
+    post_density_check:
+      enable: true
+      min_linear_density: 500   # 最小线密度 (pts/m): n_points / max_span
+      min_pts_absolute: 100     # 绝对最少点数
+
+    
+  # === Stage 3: 基于局部骨架曲线的自适应拆分 ===
+  # 对 Stage 1/2 仍过大或拉长的簇，沿主轴密度波谷切割
+  pca_split:
+    enable: true                # 骨架拆分
+    abnormal_diameter: 0.60      # 触发直径 (0.5→0.6, 减少过分割)
+    abnormal_aspect_ratio: 1.60  # 甘蓝近似球形, 1.6以上才明显拉长
+    
+    # 2. 骨架提取与切割 (Skeleton & Cut)
+    skeleton_bins: 15            # 沿主轴的密度直方图分箱数
+    min_peak_dist_m: 0.35        # 两峰最小间距 (0.25→0.35, 避免把叶片间隙当植株间隙)
+    valley_depth_rel: 0.90       # 波谷深度阈值 (0.85→0.90, 需更深缺口才切)
+    
+    # 3. 回并 (Merge Back) - 防止过分割
+    merge_min_diameter: 0.45     # 碎片直径阈值 (m)
+    merge_max_dist: 0.30         # 碎片距离阈值 (m)
+    merge_max_angle: 50          # 碎片主轴夹角阈值 (度)
+
+  # 碎片优化：邻域投票 (Fragment Neighbor Voting)
+  fragment_voting:
+    enable: true
+    discard_threshold: 500       # 🗑️ 小于此值直接丢弃 (噪音点)
+    merge_threshold: 1500        # 🔄 300~1500 合并到最近质心
+                                  # 最终 < min_cluster_points 的也会丢弃
+    fragment_merge_max_dist: 0.15 # 碎片合并距离上限: 质心距最近大簇 > 此值则丢弃(防远噪声点被硬塞)
+
+  min_cluster_points: 2000       # 🗑️ 小于此值的碎片直接丢弃
+  max_cluster_points: 100000
+  # 噪声重归入距离上限: 距最近簇 > 此值的 -1 点直接丢弃, 不硬塞进植株(防远噪声点拉大冠幅)
+  noise_reassign_radius: 0.10
+
+# 评估参数
+evaluation:
+  iou_thresh: 0.5             # 实例匹配 IoU 阈值 (原始配置)
+
+traits:
+  height_percentile_low: 1
+  height_percentile_high: 99
+  # 离群过滤: 防止远噪声点拉大冠幅/体积 (MAD 稳健判据)
+  outlier_filter:
+    enable: true
+    mad_thresh: 3.5            # 稳健 z-score 阈值 (越大越宽松)
+    min_points: 100            # 点数少于此时跳过过滤
+  # alpha-shape 体积: 外接球半径阈值 (m), 越小越贴近表面(越能反映凹陷), 越大越接近凸包
+  alpha_shape_radius: 0.03
+
+
+

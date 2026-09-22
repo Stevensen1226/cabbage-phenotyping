@@ -1,0 +1,71 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Large datasets and evaluation inputs
+/data/
+/e_data/
+/evalaute_test/
+/测试/
+/output/
+/models/
+
+# Model/checkpoint formats
+*.pth
+*.pt
+*.ckpt
+*.onnx
+
+# Compiled artifacts
+*.so
+*.pyd
+*.dll
+*.lib
+*.exp
+*.obj
+*.o
+build/
+dist/
+
+# Training and runtime output
+*.log
+*.tfevents.*
+*.events.out.tfevents.*
+
+# Large binary documents/archives
+*.pdf
+*.docx
+*.zip
+*.7z
+*.rar
+
+# Independent Git clone; track it separately
+/PointGroup_Ours/
+
+# Local environment/generated files
+environment.ps1
+.env
+.idea/
+
+# Keep generated publication figures as vector PDFs
+!tools/figures/fragment_merge_mechanism*.pdf
+
+
+# Diagnostic contact sheets
+tools/figures/_*.png
+
+
+# Temporary analysis scripts
+.tmp_*
+

@@ -1,0 +1,12 @@
+{
+  "source": "output/iach_gidm_debug/cloudR12/stage3_skeleton.ply",
+  "source_label": 5,
+  "target_points_before": 9187,
+  "fragment_points": 663,
+  "merged_points": 9850,
+  "fragment_L1_m": 0.1368956588692924,
+  "centroid_distance_m": 0.24116626490590012,
+  "axis_angle_deg": 14.668895767570806,
+  "minimum_gap_m": 0.03321559755759105,
+  "fraction_below_2cm": 0.0
+}

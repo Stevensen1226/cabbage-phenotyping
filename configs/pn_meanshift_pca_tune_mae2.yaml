@@ -1,0 +1,85 @@
+# PointNeXt + MeanShift + PCA tuned v2: larger bandwidth, looser PCA merge
+
+pipeline:
+  voxel_size: 0.005
+  output_dir: "output"
+  seed: 0
+  deterministic: true
+  strict_deterministic: false
+
+preprocess:
+  sor_enable: true
+  sor_neighbors: 10
+  sor_std_ratio: 3.5
+  ground_removal:
+    enable: true
+    fit_percentile: 15
+    ransac_thresh: 0.015
+    remove_thresh: 0.02
+
+segmentation:
+  backbone: "pointnet2"
+  method: "clustering"
+  proposal_selection: "nms"
+  block_inference:
+    enable: true
+    block_size: 2.0
+    overlap: 0.5
+    max_single_extent: 8.0
+    merge_iou_thresh: 0.25
+  pointgroup_config: "PointGroup_Ours/config/pointgroup_cabbage.yaml"
+  softgroup_config: "SoftGroup_Ours/config/softgroup_cabbage.yaml"
+  pg_score_thresh: 0.05
+  pg_npoint_thresh: 20
+  pg_sem_thresh: 0
+  iach:
+    eps: 0.05
+    min_samples: 100
+  post_semantic_filter:
+    enable: false
+    z_percentile: 0
+    radius_outlier_radius: 0.03
+    radius_outlier_min_neighbors: 8
+
+instance:
+  method: "meanshift"
+
+  meanshift:
+    bandwidth: 0.30           # 0.25→0.30, reduce over-segmentation
+    bin_seeding: true
+    min_bin_freq: 10
+
+  precluster_filter:
+    enable: true
+    eps: 0.03
+    min_points: 10
+    post_density_check:
+      enable: true
+      min_linear_density: 500
+      min_pts_absolute: 100
+
+  pca_split:
+    enable: true
+    abnormal_diameter: 0.60
+    abnormal_aspect_ratio: 1.60
+    skeleton_bins: 15
+    min_peak_dist_m: 0.35       # 0.30→0.35, fewer splits
+    valley_depth_rel: 0.92      # 0.90→0.92, deeper valley required
+    merge_min_diameter: 0.12    # 0.15→0.12, merge smaller fragments
+    merge_max_dist: 0.25        # 0.20→0.25, merge farther apart
+    merge_max_angle: 30
+
+  fragment_voting:
+    enable: true
+    discard_threshold: 300
+    merge_threshold: 1000
+
+  min_cluster_points: 1200
+  max_cluster_points: 100000
+
+evaluation:
+  iou_thresh: 0.5
+
+traits:
+  height_percentile_low: 1
+  height_percentile_high: 99

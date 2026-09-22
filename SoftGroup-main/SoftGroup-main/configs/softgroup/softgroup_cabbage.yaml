@@ -1,0 +1,77 @@
+model:
+  channels: 32
+  num_blocks: 7
+  semantic_classes: 2          # 0=背景, 1=甘蓝
+  instance_classes: 1          # 甘蓝 (唯一 thing 类)
+  sem2ins_classes: []          # 无 stuff 类需要直接语义输出
+  semantic_only: False
+  ignore_label: -100
+  grouping_cfg:
+    score_thr: 0.1             # 语义 softmax 分数阈值 (降低以提高 proposal 覆盖率)
+    radius: 0.03               # ball query 半径 3cm (甘蓝冠层半径 ~0.25m)
+    mean_active: 50            # ball query 平均活跃点数
+    # class_numpoint_mean 长度 = semantic_classes = 2
+    # 背景 (-1) 用绝对阈值; 甘蓝用绝对阈值 (单株 ~6755 点, 5% = 338)
+    class_numpoint_mean: [-1., -1.]
+    npoint_thr: 100            # 绝对点数阈值 (BFS 聚类最小点数)
+    ignore_classes: [0]        # 背景不参与分组
+  instance_voxel_cfg:
+    scale: 50
+    spatial_shape: 20
+  train_cfg:
+    max_proposal_num: 200
+    pos_iou_thr: 0.25          # 降低正样本 IoU 阈值 (0.5 -> 0.25, 提高正样本比例)
+    match_low_quality: True    # 每个 GT 至少匹配一个 proposal (缓解正样本稀少)
+    min_pos_thr: 0.1           # 低质量匹配的最低 IoU 门槛
+  test_cfg:
+    x4_split: False
+    cls_score_thr: 0.001
+    mask_score_thr: -0.5
+    min_npoint: 100
+    eval_tasks: ['semantic', 'instance']
+  fixed_modules: []              # 从零训练, 不冻结任何模块 (官方配置依赖 HAIS 预训练才冻结)
+
+data:
+  train:
+    type: 'cabbage'
+    data_root: '/root/autodl-tmp/e_data/pointgroup_format'
+    prefix: 'train'
+    suffix: '.pth'
+    training: True
+    repeat: 8                  # 数据量小, 增强重复次数 4 -> 8
+    voxel_cfg:
+      scale: 50
+      spatial_shape: [128, 512]
+      max_npoint: 250000
+      min_npoint: 5000
+  test:
+    type: 'cabbage'
+    data_root: '/root/autodl-tmp/e_data/pointgroup_format'
+    prefix: 'train'
+    suffix: '.pth'
+    training: False
+    with_label: True
+    voxel_cfg:
+      scale: 50
+      spatial_shape: [128, 512]
+      max_npoint: 250000
+      min_npoint: 5000
+
+dataloader:
+  train:
+    batch_size: 4
+    num_workers: 4
+  test:
+    batch_size: 1
+    num_workers: 1
+
+optimizer:
+  type: 'Adam'
+  lr: 0.001                  # 0.004 -> 0.001, 降低学习率减少震荡
+
+fp16: False
+epochs: 160                  # 128 -> 160, 延长训练
+step_epoch: 60               # 50 -> 60, 延后学习率衰减
+save_freq: 4
+pretrain: ''
+work_dir: ''

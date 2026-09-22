@@ -1,0 +1,18 @@
+{
+  "scene": "cloudR14",
+  "source_point_cloud": "output/iach_gidm_debug/cloudR14/cabbage_points.ply",
+  "source_coarse_stage": "output/step_preview/cloudR14_legacy_check/cloudR14_step4a_cluster_coarse.ply",
+  "projection": "XY (native coordinates)",
+  "main_label_before_merge": 13,
+  "fragment_label_before_merge": 22,
+  "label_after_merge": 13,
+  "main_points": 6531,
+  "fragment_points": 2412,
+  "merged_points": 8943,
+  "fragment_fraction_pct": 26.97,
+  "exported_before_ply": "output/step_preview/cloudR14_legacy_check/cloudR14_fragment22_main13_before_merge.ply",
+  "exported_after_ply": "output/step_preview/cloudR14_legacy_check/cloudR14_fragment22_main13_after_merge.ply",
+  "output_png": "tools/figures/cea_fragment_merge_cloudR14_initial_vs_merged.png",
+  "output_pdf": "tools/figures/cea_fragment_merge_cloudR14_initial_vs_merged.pdf",
+  "output_svg": "tools/figures/cea_fragment_merge_cloudR14_initial_vs_merged.svg"
+}
