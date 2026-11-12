@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """PointNeXt-L 聚类方法对比 — 批量运行 & 汇总
 用法:
-  /home/stevensen/miniconda3/envs/pointgroup_blackwell/bin/python tools/run_pn_cluster_ablation.py
+  python tools/run_pn_cluster_ablation.py
 """
 import os, sys, json, time, subprocess, glob
+from pathlib import Path
 
-os.chdir('/home/stevensen/Cabbage')
-PYTHON = '/home/stevensen/miniconda3/envs/pointgroup_blackwell/bin/python'
+ROOT = Path(__file__).resolve().parents[1]
+os.chdir(ROOT)
+PYTHON = sys.executable
 SCRIPT = 'tools/pointnext_eval.py'
 
 # ── 需要对比的配置 ──
@@ -69,22 +71,22 @@ print('=' * 90)
 pca_results = [(l, s) for l, s in results if '+PCA' in l]
 nopca_results = [(l, s) for l, s in results if '+PCA' not in l]
 
-print(f'\n{\"方法\":<24} {\"Sem mIoU\":>8} {\"Inst Prec\":>8} {\"Inst Rec\":>8} {\"Inst F1\":>8} {\"Inst mIoU\":>8} {\"MAE\":>5}')
+print(f'\n{"方法":<24} {"Sem mIoU":>8} {"Inst Prec":>8} {"Inst Rec":>8} {"Inst F1":>8} {"Inst mIoU":>8} {"MAE":>5}')
 print('-' * 75)
 
 for label, s in sorted(results, key=lambda x: -x[1]['avg_inst_f1']):
     marker = '◀ PCA' if '+PCA' in label else ''
-    print(f'{label:<24} {s[\"avg_sem_miou\"]:>8.4f} {s[\"avg_inst_prec\"]:>8.4f} {s[\"avg_inst_rec\"]:>8.4f} {s[\"avg_inst_f1\"]:>8.4f} {s[\"avg_inst_miou\"]:>8.4f} {s[\"mae_count\"]:>4.1f}  {marker}')
+    print(f'{label:<24} {s["avg_sem_miou"]:>8.4f} {s["avg_inst_prec"]:>8.4f} {s["avg_inst_rec"]:>8.4f} {s["avg_inst_f1"]:>8.4f} {s["avg_inst_miou"]:>8.4f} {s["mae_count"]:>4.1f}  {marker}')
 
 print('-' * 75)
 
 # PCA 增益
 print('\nPCA 增益 (每方法):')
-print(f'{\"方法\":<22} {\"F1 w/PCA\":>10} {\"F1 w/o PCA\":>10} {\"Δ\":>8} {\"%\":>8}')
+print(f'{"方法":<22} {"F1 w/PCA":>10} {"F1 w/o PCA":>10} {"Δ":>8} {"%":>8}')
 print('-' * 62)
 for (lp, sp), (ln, sn) in zip(
     sorted([(l, s) for l, s in pca_results], key=lambda x: x[0]),
     sorted([(l, s) for l, s in nopca_results], key=lambda x: x[0]),
 ):
     d = sp['avg_inst_f1'] - sn['avg_inst_f1']
-    print(f'{lp.replace(\"+PCA\",\"\"):<22} {sp[\"avg_inst_f1\"]:>10.4f} {sn[\"avg_inst_f1\"]:>10.4f} {d:>+8.4f} {d/sn[\"avg_inst_f1\"]*100:>+7.0f}%')
+    print(f'{lp.replace("+PCA",""):<22} {sp["avg_inst_f1"]:>10.4f} {sn["avg_inst_f1"]:>10.4f} {d:>+8.4f} {d/sn["avg_inst_f1"]*100:>+7.0f}%')

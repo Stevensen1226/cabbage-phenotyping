@@ -1,0 +1,172 @@
+{
+  "summary": {
+    "preprocess_ms": {
+      "mean": 116.79388334353764,
+      "std": 58.403079085828765
+    },
+    "semantic_ms": {
+      "mean": 925.0876666531743,
+      "std": 438.93511778478825
+    },
+    "base_cluster_ms": {
+      "mean": 298.85831668313284,
+      "std": 154.7277375008896
+    },
+    "adpv_cluster_ms": {
+      "mean": 448.3227833309987,
+      "std": 268.3495161627366
+    },
+    "adpv_overhead_ms": {
+      "mean": 149.46446664786586,
+      "std": 115.66323772861394
+    },
+    "total_base_ms": {
+      "mean": 1340.7398666798447,
+      "std": 637.1145402544423
+    },
+    "total_adpv_ms": {
+      "mean": 1490.2043333277106,
+      "std": 744.8725310709725
+    },
+    "relative_overhead_pct": {
+      "mean": 10.133707104284172,
+      "std": 4.754652099335387
+    },
+    "fps_base": {
+      "mean": 0.8625899906093636,
+      "std": 0.3153474475480886
+    },
+    "fps_adpv": {
+      "mean": 0.7907785221249298,
+      "std": 0.30660810372241903
+    },
+    "gpu_peak_mb": {
+      "mean": 6286.6856960000005,
+      "std": 359.55551349853306
+    },
+    "n_scenes": 6,
+    "backbone": "pointnet2",
+    "model": "PointNet2-RGB",
+    "config_adpv": "revision_data/final_v6_ransac/configs/pointnet2_rgb_watershed_adpv_v6.yaml",
+    "config_base": "revision_data/final_v6_ransac/configs/pointnet2_rgb_watershed_base_v6.yaml",
+    "config_adpv_sha256": "d05fa1c4a22ea3d0eb76309b44ab039eff5c1c09202490adaf0745e38c1248d4",
+    "config_base_sha256": "a99d9cb54a2adc8f94d5a4e119cbf768be3d170c9f76069f4d2c56ee2302830d",
+    "checkpoint_sha256": "c9c0691414b5760e19f332581319593864ad25c4d6c8474104693324151da7b5"
+  },
+  "per_scene": [
+    {
+      "backbone": "pointnet2",
+      "scene_id": "cloudR2",
+      "n_points": 127124,
+      "n_plant_points": 57118,
+      "base_instances": 4,
+      "adpv_instances": 8,
+      "preprocess_ms": 78.15399998798966,
+      "semantic_ms": 738.6803000117652,
+      "base_cluster_ms": 137.72729999618605,
+      "adpv_cluster_ms": 174.67360000591725,
+      "adpv_overhead_ms": 36.9463000097312,
+      "total_base_ms": 954.5615999959409,
+      "total_adpv_ms": 991.5079000056721,
+      "relative_overhead_pct": 3.870499296209727,
+      "fps_base": 1.0476013281953227,
+      "fps_adpv": 1.0085648334161323,
+      "gpu_peak_mb": 6433.281536
+    },
+    {
+      "backbone": "pointnet2",
+      "scene_id": "cloudR5",
+      "n_points": 125508,
+      "n_plant_points": 103080,
+      "base_instances": 9,
+      "adpv_instances": 10,
+      "preprocess_ms": 73.09799996437505,
+      "semantic_ms": 748.2450999668799,
+      "base_cluster_ms": 167.09280002396554,
+      "adpv_cluster_ms": 226.92089999327436,
+      "adpv_overhead_ms": 59.82809996930882,
+      "total_base_ms": 988.4358999552205,
+      "total_adpv_ms": 1048.2639999245293,
+      "relative_overhead_pct": 6.052805242304457,
+      "fps_base": 1.0116993929958467,
+      "fps_adpv": 0.9539581632794752,
+      "gpu_peak_mb": 6433.281536
+    },
+    {
+      "backbone": "pointnet2",
+      "scene_id": "cloudR9",
+      "n_points": 236140,
+      "n_plant_points": 199777,
+      "base_instances": 14,
+      "adpv_instances": 21,
+      "preprocess_ms": 134.58260003244504,
+      "semantic_ms": 936.9532999699004,
+      "base_cluster_ms": 358.3680000156164,
+      "adpv_cluster_ms": 601.6464999993332,
+      "adpv_overhead_ms": 243.27849998371676,
+      "total_base_ms": 1429.9039000179619,
+      "total_adpv_ms": 1673.1824000016786,
+      "relative_overhead_pct": 17.01362587937978,
+      "fps_base": 0.6993476974133985,
+      "fps_adpv": 0.5976634705212036,
+      "gpu_peak_mb": 6433.281536
+    },
+    {
+      "backbone": "pointnet2",
+      "scene_id": "cloudR12",
+      "n_points": 397653,
+      "n_plant_points": 326732,
+      "base_instances": 19,
+      "adpv_instances": 27,
+      "preprocess_ms": 224.7027000412345,
+      "semantic_ms": 1755.7078000390902,
+      "base_cluster_ms": 556.6878000390716,
+      "adpv_cluster_ms": 884.0660999994725,
+      "adpv_overhead_ms": 327.3782999604009,
+      "total_base_ms": 2537.0983001193963,
+      "total_adpv_ms": 2864.476600079797,
+      "relative_overhead_pct": 12.903650597416522,
+      "fps_base": 0.39415106618176354,
+      "fps_adpv": 0.3491039165661687,
+      "gpu_peak_mb": 6434.241536
+    },
+    {
+      "backbone": "pointnet2",
+      "scene_id": "cloudR14",
+      "n_points": 185103,
+      "n_plant_points": 155291,
+      "base_instances": 14,
+      "adpv_instances": 18,
+      "preprocess_ms": 114.49539999011904,
+      "semantic_ms": 900.4058999707922,
+      "base_cluster_ms": 341.69079997809604,
+      "adpv_cluster_ms": 497.11340002249926,
+      "adpv_overhead_ms": 155.42260004440323,
+      "total_base_ms": 1356.5920999390073,
+      "total_adpv_ms": 1512.0146999834105,
+      "relative_overhead_pct": 11.456841010012594,
+      "fps_base": 0.7371412527354098,
+      "fps_adpv": 0.6613692314042792,
+      "gpu_peak_mb": 6433.281536
+    },
+    {
+      "backbone": "pointnet2",
+      "scene_id": "cloudR18",
+      "n_points": 103530,
+      "n_plant_points": 80524,
+      "base_instances": 10,
+      "adpv_instances": 15,
+      "preprocess_ms": 75.7306000450626,
+      "semantic_ms": 470.5335999606177,
+      "base_cluster_ms": 231.5832000458613,
+      "adpv_cluster_ms": 305.5161999654956,
+      "adpv_overhead_ms": 73.93299991963431,
+      "total_base_ms": 777.8474000515416,
+      "total_adpv_ms": 851.7803999711759,
+      "relative_overhead_pct": 9.504820600381947,
+      "fps_base": 1.28559920613444,
+      "fps_adpv": 1.1740115175623198,
+      "gpu_peak_mb": 5552.746496
+    }
+  ]
+}

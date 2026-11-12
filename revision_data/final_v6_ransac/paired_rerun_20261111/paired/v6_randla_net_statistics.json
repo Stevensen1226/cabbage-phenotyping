@@ -1,0 +1,66 @@
+{
+  "gt_plants": 102,
+  "base_matched": 50,
+  "adpv_matched": 85,
+  "paired_plants": 50,
+  "paired_plants_in_registry": 50,
+  "method": "paired absolute error; delta = ADPV - baseline; negative is better",
+  "statistics": [
+    {
+      "trait": "height_cm",
+      "n": 50,
+      "mean_base_abs_error": 2.7825420000000003,
+      "mean_adpv_abs_error": 2.7009479999999995,
+      "mean_delta_abs_error_adpv_minus_base": -0.0815939999999998,
+      "relative_change_pct": -2.932354659874693,
+      "ci95_low": -0.2808852499999999,
+      "ci95_high": 0.0979683500000002,
+      "paired_t_p": 0.40326769137397556,
+      "wilcoxon_p": 0.6004574855558895,
+      "cohen_dz": -0.11923277807406811,
+      "holm_adjusted_p": 0.6004574855558895
+    },
+    {
+      "trait": "crown_diameter_mean_cm",
+      "n": 50,
+      "mean_base_abs_error": 13.550111999999999,
+      "mean_adpv_abs_error": 8.016874,
+      "mean_delta_abs_error_adpv_minus_base": -5.533238000000001,
+      "relative_change_pct": -40.83536726485798,
+      "ci95_low": -8.119253450000002,
+      "ci95_high": -3.127665700000001,
+      "paired_t_p": 8.994192454210189e-05,
+      "wilcoxon_p": 0.00024618221750864175,
+      "cohen_dz": -0.6036242425100528,
+      "holm_adjusted_p": 0.000984728870034567
+    },
+    {
+      "trait": "volume_alpha_cm3",
+      "n": 50,
+      "mean_base_abs_error": 689.9002919999999,
+      "mean_adpv_abs_error": 334.421858,
+      "mean_delta_abs_error_adpv_minus_base": -355.478434,
+      "relative_change_pct": -51.526059362792594,
+      "ci95_low": -568.99916265,
+      "ci95_high": -171.32236799999998,
+      "paired_t_p": 0.0012123179633342176,
+      "wilcoxon_p": 0.0003208155293763209,
+      "cohen_dz": -0.48590565624863197,
+      "holm_adjusted_p": 0.000984728870034567
+    },
+    {
+      "trait": "compactness",
+      "n": 50,
+      "mean_base_abs_error": 0.009202,
+      "mean_adpv_abs_error": 0.007423999999999998,
+      "mean_delta_abs_error_adpv_minus_base": -0.0017779999999999996,
+      "relative_change_pct": -19.3218865443032,
+      "ci95_low": -0.0031100499999999996,
+      "ci95_high": -0.0005799999999999992,
+      "paired_t_p": 0.010016681172721711,
+      "wilcoxon_p": 0.011483595636288289,
+      "cohen_dz": -0.3789117148965631,
+      "holm_adjusted_p": 0.022967191272576577
+    }
+  ]
+}

@@ -106,6 +106,10 @@ instance:
 
   min_cluster_points: 2000
   max_cluster_points: 100000
+  noise_reassign_radius: 0.0
+  noise_reassign_k: 5
+  noise_reassign_min_votes: 3
+  drop_oversized_clusters: true
 
 evaluation:
   iou_thresh: 0.5

@@ -1,89 +1,68 @@
-﻿# Model-Agnostic Adaptive Density Peak-Valley Refinement for Densely Planted Cabbage Point Cloud Instance Segmentation
+﻿# Model-Agnostic Adaptive Density Peak–Valley Refinement for Densely Planted Cabbage Point Cloud Instance Segmentation
 
-Official code and dataset release for the paper:
+Official code, documentation, and released results for the paper:
 
-> **Model-Agnostic Adaptive Density Peak-Valley Refinement for Densely Planted Cabbage Point Cloud Instance Segmentation**  
+> **Model-Agnostic Adaptive Density Peak–Valley Refinement for Densely Planted Cabbage Point Cloud Instance Segmentation**  
 > Yonglong Zhang, Liwen Shi, Jia Jia, Xiangying Xu, Muhammad Jawaad Atif, Zhiping Zhang
 
-This repository focuses on **instance segmentation of adhered cabbage plants in dense-field 3D point clouds**. The proposed **ADPV-Framework** is a lightweight, model-agnostic post-processing framework that refines initial semantic/instance segmentation results.
+This repository provides the complete ADPV post-processing framework, baseline training/inference code, preprocessing tools, evaluation scripts, paper documentation, final tables, figures, and result files.
 
 ## Highlights
 
-- **ADPV-Framework**: a model-agnostic post-processing module for dense cabbage point clouds.
-- **DPVIS**: Density Peak-Valley Instance Segmentation is used to decouple adhered cabbage clusters.
-- **LCP**: Local coordinate system projection based on PCA.
-- **SBD**: Structural boundary detection from one-dimensional projection density.
-- **VISRR**: Valley-guided instance separation with recursive re-segmentation.
-- **k-NN distance-weighted voting**: repairs fragmented instances after initial segmentation.
-- Consistent improvements across multiple baseline models, with the reported F1-score increasing from `0.108` to `0.780` in the paper.
-- Low additional inference overhead (`0.5–8.6%`) and limited FPS reduction (`≤7.8%`).
+- Model-agnostic ADPV refinement for adhered cabbage point clouds.
+- PCA-based local projection and density peak–valley instance separation.
+- k-NN distance-weighted fragment reassignment.
+- Unified evaluation across Watershed-3D, MeanShift, HDBSCAN, and PointGroup-native configurations.
+- Fixed scene-level train/validation/test split with a 102-plant test registry.
 
 ## Dataset
 
-The released dataset contains:
+- 23 spatially contiguous scenes
+- 365 annotated cabbage plants
+- 4,581,227 annotated points
+- Training: 13 scenes / 203 plants
+- Validation: 4 scenes / 60 plants
+- Test: 6 scenes / 102 plants
 
-- **23 spatially contiguous sub-regions**
-- **365 cabbage plants**
-- **4,581,227 annotated points**
-- Training: **13 sub-regions, 203 plants**
-- Validation: **4 sub-regions, 60 plants**
-- Test: **6 sub-regions, 102 plants**
+The split is isolated at the scene level. Test scenes are cloudR2, cloudR5, cloudR9, cloudR12, cloudR14, and cloudR18.
 
-The article-level data split is strictly isolated by sub-region to prevent information leakage.
+Dataset release:
 
-### Download
-
-The complete dataset is available from the GitHub Release:
-
-- [Download dataset Release v1.0.0](https://github.com/Stevensen1226/cabbage-phenotyping/releases/tag/v1.0.0)
+- [Dataset Release v1.0.0](https://github.com/Stevensen1226/cabbage-phenotyping/releases/tag/v1.0.0)
 - [Raw PLY + point-wise ground truth](https://github.com/Stevensen1226/cabbage-phenotyping/releases/download/v1.0.0/cabbage_paper_dataset_raw_20260922.zip)
 - [PointGroup-format data](https://github.com/Stevensen1226/cabbage-phenotyping/releases/download/v1.0.0/cabbage_pointgroup_format_20260922.zip)
-- [SHA256 checksums](https://github.com/Stevensen1226/cabbage-phenotyping/releases/download/v1.0.0/SHA256SUMS.txt)
+- [Dataset checksums](https://github.com/Stevensen1226/cabbage-phenotyping/releases/download/v1.0.0/SHA256SUMS.txt)
 
-## Dataset Format
+## Current Paper Results
 
-Each point cloud is released as a `.ply` file and a corresponding point-wise `.txt` annotation:
+The current fixed-cohort main comparison contains 26 configurations: 18 primary configurations and eight HDBSCAN configurations.
 
-```text
-x y z r g b semantic instance
-```
+| Method | ADPV F1 range | Mean Base F1 | Mean ADPV F1 |
+|---|---:|---:|---:|
+| Watershed-3D | 0.7946–0.9079 | 0.4924 | 0.8709 |
+| MeanShift | 0.8586–0.9082 | 0.8091 | 0.8725 |
+| HDBSCAN | 0.7967–0.8507 | 0.0493 | 0.8231 |
+| PointGroup native | 0.8648 | 0.4859 | 0.8648 |
 
-Label conventions:
-
-```text
-semantic = 0  -> background, ground, weeds, noise, or non-cabbage points
-semantic = 1  -> cabbage points
-
-instance = -1 -> background or non-cabbage points
-instance = 1..N -> individual cabbage plants
-```
-
-The PointGroup-format data use the tuple:
-
-```python
-(xyz, rgb, semantic, instance)
-```
-
-with background instance labels set to `-100` for the prepared training files.
+- Highest ADPV F1: **0.9082** (RandLA-Net + MeanShift).
+- PointNet2-RGB + Watershed-3D: **0.9079**.
+- Complete scene–plant–method–metric mapping: **26 × 102 = 2,652 rows**.
+- Paired trait sample sizes: **50 / 45 / 36 / 36**.
+- Crown diameter improved significantly across all four backbones; height changes were not significant.
+- Full ADPV overhead: **117.6–176.7 ms/scene** (5.3–14.8%).
 
 ## Repository Structure
 
 ```text
-cabbage_pheno/
-├── preprocess/       # SOR, ground removal, point cloud cleaning
-├── segmentation/     # semantic segmentation models and inference
-├── instance/         # clustering, PCA peak-valley splitting, fragment merging
-├── traits/           # morphology and phenotype calculations
-├── service/          # shared inference pipeline
-└── viz/              # point cloud visualization
-
-configs/              # training, inference, ablation, and paper configurations
-tools/                # data preparation, evaluation, figure generation, packaging
-docs/                 # method, experiment, annotation, and data documentation
-train.py              # training entry point
-evaluate.py           # evaluation and comparison entry point
-main.py               # single-scene inference entry point
-requirements.txt      # Python dependencies
+cabbage_pheno/       Core preprocessing, segmentation, clustering, traits, and evaluation code
+configs/             Training, inference, ablation, and paper configurations
+tools/               Data preparation, evaluation, figure generation, packaging, and revision scripts
+docs/                Method, data, experiment, paper, and audit documentation
+revision_data/       Final split manifests, tables, figures, and audited result files
+train.py             Training entry point
+evaluate.py          Evaluation entry point
+main.py              Single-scene inference entry point
+requirements.txt     Python dependencies
 ```
 
 ## Installation
@@ -95,11 +74,20 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-The deep-learning components require PyTorch and a compatible CUDA environment. CUDA extensions for PointGroup/SoftGroup should be compiled according to their corresponding directories before training or inference.
+Deep-learning components require PyTorch and a compatible CUDA environment. PointGroup/SoftGroup CUDA extensions should be compiled according to their corresponding source directories.
 
 ## Quick Start
 
-### Generate all pipeline stages for one point cloud
+### Evaluate the fixed paper split
+
+```bash
+python evaluate.py \
+  --input evalaute_test \
+  --config configs/randla_watershed3d_ransac025.yaml \
+  --split test
+```
+
+### Generate pipeline stages for one point cloud
 
 ```bash
 python tools/generate_steps.py \
@@ -109,45 +97,24 @@ python tools/generate_steps.py \
   --out_dir output/step_preview/cloudR1
 ```
 
-This saves intermediate PLY files for preprocessing, semantic segmentation, coarse clustering, skeleton splitting, fragment merging, and final instance cleanup.
+### ADPV implementation
 
-### Evaluate the paper split
-
-```bash
-python evaluate.py \
-  --input evalaute_test \
-  --config configs/randla_watershed3d_ransac025.yaml \
-  --split test
-```
-
-### Run the full ADPV refinement
-
-The ADPV-related implementation is located in:
+The main ADPV implementation is in:
 
 ```text
 cabbage_pheno/instance/clustering.py
 ```
 
-The main refinement stages are:
+## Paper Documents and Final Tables
 
-1. PCA-based local coordinate projection (`LCP`)
-2. Projection-density peak/valley detection (`SBD`)
-3. Cut-plane generation and recursive separation (`VISRR`)
-4. Fragmented-instance repair using distance-weighted neighbor voting
-5. Final instance filtering and cleanup
-
-## Preprocessing
-
-The manuscript uses:
-
-- Statistical Outlier Removal: `k = 10`, `sigma = 3.5`
-- RANSAC ground removal: distance threshold `0.025 m`
-
-The corresponding configuration is:
-
-```text
-configs/randla_watershed3d_ransac025.yaml
-```
+- Manuscript replacement text: `docs/COMPAG-D-26-10878_Revised_Manuscript_Text.md`
+- Fixed-cohort result report: `docs/COMPAG-D-26-10878_Fixed_Cohort_Results_CN.md`
+- Final main table: `revision_data/final_v6_ransac/manuscript_tables_20261111/Table2_main_results.csv`
+- Paired trait table: `revision_data/final_v6_ransac/manuscript_tables_20261111/Table3_paired_traits.csv`
+- Ablation table: `revision_data/final_v6_ransac/manuscript_tables_20261111/Table4_ablation.csv`
+- Sensitivity table: `revision_data/final_v6_ransac/manuscript_tables_20261111/Table5_sensitivity.csv`
+- Efficiency table: `revision_data/final_v6_ransac/manuscript_tables_20261111/Table6_efficiency.csv`
+- Scene–plant–method–metric mapping: `revision_data/final_v6_ransac/manuscript_tables_20261111/TableS_scene_plant_method_metric_mapping.csv`
 
 ## Data Availability
 
@@ -161,7 +128,7 @@ https://github.com/Stevensen1226/cabbage-phenotyping/releases/tag/v1.0.0
 
 ## Citation
 
-If you use this repository or dataset, please cite the paper. The final bibliographic information will be updated after publication.
+If you use this repository or dataset, please cite the paper. Final bibliographic information will be updated after publication.
 
 ```bibtex
 @article{zhang_cabbage_adpv,
@@ -175,7 +142,7 @@ If you use this repository or dataset, please cite the paper. The final bibliogr
 
 ## Contact
 
-For questions about the method or dataset, please open a GitHub issue or contact the corresponding author:
+For questions about the method or dataset, please open a GitHub issue or contact:
 
 ```text
 Zhiping Zhang

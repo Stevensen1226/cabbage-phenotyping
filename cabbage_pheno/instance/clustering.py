@@ -2,21 +2,32 @@ import numpy as np
 import logging
 import time
 from collections import Counter
-from sklearn.cluster import MeanShift, AgglomerativeClustering, DBSCAN
+from sklearn.cluster import MeanShift, AgglomerativeClustering, DBSCAN, MiniBatchKMeans, OPTICS, Birch
 from sklearn.neighbors import kneighbors_graph
+
+try:
+    from scipy.spatial import cKDTree
+except ImportError:
+    cKDTree = None
+
+try:
+    from scipy.stats import mode
+except ImportError:
+    mode = None
 
 try:
     from scipy.ndimage import distance_transform_edt, gaussian_filter, binary_dilation
     from scipy.signal import find_peaks
-    from scipy.spatial import cKDTree
-    from skimage.feature import peak_local_max
-    from skimage.segmentation import watershed
 except ImportError:
     distance_transform_edt = None
     gaussian_filter = None
     binary_dilation = None
     find_peaks = None
-    cKDTree = None
+
+try:
+    from skimage.feature import peak_local_max
+    from skimage.segmentation import watershed
+except ImportError:
     peak_local_max = None
     watershed = None
 
@@ -56,8 +67,52 @@ class InstanceClusterer:
 
         # HDBSCAN params
         self.hdb_cfg = self.inst_cfg.get('hdbscan', {})
-        self.hdb_min_cluster_size = int(self.hdb_cfg.get('min_cluster_size', 500))
-        self.hdb_min_samples = int(self.hdb_cfg.get('min_samples', 10))
+        # Values in (0, 1) are interpreted as fractions of the foreground
+        # point count at fit time.  Integers retain the historical absolute
+        # behaviour, so existing cabbage configs remain valid.
+        self.hdb_min_cluster_size = self.hdb_cfg.get('min_cluster_size', 500)
+        self.hdb_min_samples = self.hdb_cfg.get('min_samples', 10)
+        self.hdb_selection_method = self.hdb_cfg.get('cluster_selection_method', 'eom')
+        self.hdb_fallback_leaf = bool(self.hdb_cfg.get('fallback_leaf', True))
+        self.hdb_allow_single_cluster = bool(self.hdb_cfg.get('allow_single_cluster', False))
+        self.hdb_max_cluster_fraction = self.hdb_cfg.get('max_cluster_fraction', None)
+        self.dpc_cfg = self.inst_cfg.get('dpc', {})
+        self.dpc_k = int(self.dpc_cfg.get('k', 20))
+        self.dpc_center_fraction = float(self.dpc_cfg.get('center_fraction', 1e-4))
+        self.dpc_min_centers = int(self.dpc_cfg.get('min_centers', 4))
+        self.dpc_max_centers = int(self.dpc_cfg.get('max_centers', 80))
+        self.dpc_min_sep = float(self.dpc_cfg.get('min_center_sep_m', 0.25))
+        self.dpc_assignment = str(self.dpc_cfg.get('assignment', 'nearest_center')).lower()
+
+        # Grid-seeded MeanShift++-style mode seeking.
+        self.mspp_cfg = self.inst_cfg.get('meanshift_pp', {})
+        self.mspp_bandwidth = float(self.mspp_cfg.get('bandwidth', 0.25))
+        self.mspp_grid_size = float(self.mspp_cfg.get('grid_size_m', 0.10))
+        self.mspp_max_seeds = int(self.mspp_cfg.get('max_seeds', 5000))
+
+        # MiniBatch KMeans baseline parameters.
+        self.km_cfg = self.inst_cfg.get('kmeans', {})
+        self.km_n_clusters = int(self.km_cfg.get('n_clusters', 18))
+        self.km_feature_mode = str(self.km_cfg.get('feature_mode', 'xy')).lower()
+        self.km_batch_size = int(self.km_cfg.get('batch_size', 4096))
+        self.km_n_init = int(self.km_cfg.get('n_init', 10))
+        self.km_seed = int(cfg.get('pipeline', {}).get('seed', 0))
+
+        # OPTICS and BIRCH comparison baselines.
+        self.optics_cfg = self.inst_cfg.get('optics', {})
+        self.optics_min_samples = int(self.optics_cfg.get('min_samples', 20))
+        self.optics_xi = float(self.optics_cfg.get('xi', 0.05))
+        self.optics_min_cluster_size = int(self.optics_cfg.get('min_cluster_size', 500))
+        self.optics_max_eps = self.optics_cfg.get('max_eps', None)
+        if self.optics_max_eps is not None:
+            self.optics_max_eps = float(self.optics_max_eps)
+        self.birch_cfg = self.inst_cfg.get('birch', {})
+        self.birch_threshold = float(self.birch_cfg.get('threshold', 0.05))
+        self.birch_branching_factor = int(self.birch_cfg.get('branching_factor', 50))
+        self.birch_n_clusters = int(self.birch_cfg.get('n_clusters', 15))
+
+
+
 
         # Graph-Based params (for comparative experiments)
         self.gb_cfg = self.inst_cfg.get('graph_based', {})
@@ -81,6 +136,11 @@ class InstanceClusterer:
         self.skel_bins = int(self.pca_cfg.get('skeleton_bins', 15))
         self.min_peak_dist_m = float(self.pca_cfg.get('min_peak_dist_m', 0.35))
         self.valley_depth_rel = float(self.pca_cfg.get('valley_depth_rel', 0.92))
+        # Crop-specific switch: use an XY-ground-plane splitter instead of the
+        # original 3D PCA/skeleton splitter.  This prevents a single tall plant
+        # from being cut into upper/lower fragments while still separating
+        # neighbouring plants that touch in the ground-plane projection.
+        self.horizontal_split_only = bool(self.pca_cfg.get('horizontal_split_only', False))
 
         # Optional second-pass fallback for abnormal clusters that are not split
         # by the primary min_peak_dist_m rule.
@@ -101,16 +161,44 @@ class InstanceClusterer:
         self.merge_max_dist = float(self.pca_cfg.get('merge_max_dist', 0.20))
         self.merge_max_angle = float(self.pca_cfg.get('merge_max_angle', 25.0))
 
+        # Optional post-split repair for vertically stacked fragments that
+        # belong to the same plant.  It is disabled by default and used by the
+        # maize configuration after horizontal-only splitting.
+        self.vertical_merge_cfg = self.pca_cfg.get('vertical_merge', {})
+        self.vertical_merge_enable = bool(self.vertical_merge_cfg.get('enable', False))
+        self.vertical_merge_max_xy = float(self.vertical_merge_cfg.get('max_xy_dist_m', 0.20))
+        self.vertical_merge_min_z_sep = float(self.vertical_merge_cfg.get('min_z_sep_m', 0.20))
+        self.vertical_merge_max_diag = float(self.vertical_merge_cfg.get('max_combined_xy_diag_m', 0.65))
+        self.vertical_merge_min_overlap = float(self.vertical_merge_cfg.get('min_xy_overlap', 0.15))
+        self.vertical_merge_cell_size = float(self.vertical_merge_cfg.get('cell_size_m', 0.03))
+
         # Fragment Voting Optimization (Neighbor Voting)
         self.vote_cfg = self.inst_cfg.get('fragment_voting', {})
         self.vote_enable = bool(self.vote_cfg.get('enable', True))
         self.vote_discard = int(self.vote_cfg.get('discard_threshold', 300))
         self.vote_merge = int(self.vote_cfg.get('merge_threshold', 1500))
         self.vote_merge_max_dist = float(self.vote_cfg.get('fragment_merge_max_dist', 0.15))
+        self.vote_mode = str(self.vote_cfg.get('mode', 'centroid')).lower()
+        self.vote_knn_k = int(self.vote_cfg.get('knn_k', 10))
+        self.vote_fragment_length = float(self.vote_cfg.get('fragment_length_m', 0.15))
+        self.vote_knn_eps = float(self.vote_cfg.get('knn_epsilon', 1e-6))
+        self.vote_knn_max_dist = float(self.vote_cfg.get('knn_max_dist', 0.0))
 
         # Basic Filtering params
         self.min_points = self.inst_cfg.get('min_cluster_points', 50)
         self.max_points = self.inst_cfg.get('max_cluster_points', 100000)
+        # Optional post-filter noise reassignment.  Disabled by default so
+        # existing pipelines retain their original behaviour unless requested.
+        self.noise_reassign_radius = float(self.inst_cfg.get('noise_reassign_radius', 0.0) or 0.0)
+        self.noise_reassign_k = int(self.inst_cfg.get('noise_reassign_k', 5))
+        self.noise_reassign_min_votes = int(self.inst_cfg.get('noise_reassign_min_votes', 3))
+        # Legacy behaviour drops oversized clusters for watershed / meanshift.
+        # HDBSCAN keeps its scale-aware large-cluster behaviour.  The option can
+        # still be overridden explicitly in a config.
+        default_drop_oversized = (self.method != 'hdbscan')
+        self.drop_oversized_clusters = bool(
+            self.inst_cfg.get('drop_oversized_clusters', default_drop_oversized)
+        )
 
     def cluster(self, pcd):
         """
@@ -132,6 +220,16 @@ class InstanceClusterer:
             labels, num_seeds = self._cluster_dbscan(pcd)
         elif self.method == 'hdbscan':
             labels, num_seeds = self._cluster_hdbscan(pcd)
+        elif self.method == 'dpc':
+            labels, num_seeds = self._cluster_dpc(pcd)
+        elif self.method == 'meanshift_pp':
+            labels, num_seeds = self._cluster_meanshift_pp(pcd)
+        elif self.method == 'kmeans':
+            labels, num_seeds = self._cluster_kmeans(pcd)
+        elif self.method == 'optics':
+            labels, num_seeds = self._cluster_optics(pcd)
+        elif self.method == 'birch':
+            labels, num_seeds = self._cluster_birch(pcd)
         elif self.method == 'euclidean':
             labels, num_seeds = self._cluster_euclidean(pcd)
         elif self.method == 'none':
@@ -154,6 +252,10 @@ class InstanceClusterer:
         if self.pca_enable and self.merge_back and cKDTree is not None:
              labels = self._merge_fragments(labels, points)
         
+        # New: Repair vertically split fragments before tiny-fragment cleanup.
+        if self.vertical_merge_enable and cKDTree is not None:
+             labels = self._merge_vertical_fragments(labels, points)
+
         # New: Merge tiny fragments (<3000 pts) to nearest neighbor
         if self.vote_enable and cKDTree is not None:
              labels = self._cleanup_tiny_fragments(labels, points)
@@ -162,7 +264,9 @@ class InstanceClusterer:
         self.last_exec_time['refinement'] = t2 - t1
 
         # 4. Final Basic Filter & Renumber
-        labels = self._simple_filter(labels)
+        labels = self._simple_filter(labels, n_points=len(pcd.points))
+        if self.noise_reassign_radius > 0:
+            labels = self._reassign_noise(labels, np.asarray(pcd.points))
         final_labels, num_instances = self._renumber_labels(labels)
         
         logger.info(f"Final instances: {num_instances}")
@@ -217,26 +321,283 @@ class InstanceClusterer:
     # -------------------------------------------------------------------------
 
     def _cluster_hdbscan(self, pcd):
-        logger.info(f"Clustering using HDBSCAN (min_cluster_size={self.hdb_min_cluster_size}, min_samples={self.hdb_min_samples})...")
+        """Scale-aware HDBSCAN.
+
+        Config values in (0, 1) for ``min_cluster_size`` / ``min_samples`` are
+        fractions of the current foreground point count.  The primary selection
+        method is tried first; if it yields a single dominant cluster (the usual
+        whole-plot failure mode), a leaf selection fallback is evaluated and the
+        candidate with more valid clusters / less dominance is kept.
+        """
         points = np.asarray(pcd.points)
-        
+        n_points = len(points)
+        if n_points == 0:
+            return np.full(0, -1, dtype=int), 0
+
+        def _resolve(value, default, minimum):
+            if value is None:
+                value = default
+            if isinstance(value, float) and 0.0 < value < 1.0:
+                return max(minimum, int(round(value * n_points)))
+            return max(minimum, int(value))
+
+        min_cluster_size = _resolve(self.hdb_min_cluster_size, 500, 2)
+        min_samples = _resolve(self.hdb_min_samples, 10, 1)
+
+        logger.info(
+            "Clustering using HDBSCAN "
+            f"(n_points={n_points}, min_cluster_size={min_cluster_size}, "
+            f"min_samples={min_samples}, primary={self.hdb_selection_method})..."
+        )
+
         try:
-            from hdbscan import HDBSCAN
+            from hdbscan import HDBSCAN as HDBSCANImpl
+            backend = 'hdbscan'
         except ImportError:
-            logger.error("hdbscan not installed. Run: pip install hdbscan")
-            return np.full(len(points), -1, dtype=int), 0
-        
-        clusterer = HDBSCAN(
-            min_cluster_size=self.hdb_min_cluster_size,
-            min_samples=self.hdb_min_samples,
-            cluster_selection_method='eom',
+            try:
+                from sklearn.cluster import HDBSCAN as HDBSCANImpl
+                backend = 'sklearn'
+            except ImportError:
+                logger.error("hdbscan is not installed (neither hdbscan nor sklearn HDBSCAN)")
+                return np.full(n_points, -1, dtype=int), 0
+
+        def _fit(selection_method):
+            kwargs = {
+                'min_cluster_size': min_cluster_size,
+                'min_samples': min_samples,
+                'cluster_selection_method': selection_method,
+                'allow_single_cluster': self.hdb_allow_single_cluster,
+                'metric': 'euclidean',
+            }
+            if backend == 'hdbscan':
+                kwargs['core_dist_n_jobs'] = -1
+            else:
+                # scikit-learn's HDBSCAN accepts copy; the external package does not.
+                kwargs['copy'] = True
+            model = HDBSCANImpl(**kwargs)
+            return np.asarray(model.fit_predict(points), dtype=int)
+
+        methods = [self.hdb_selection_method]
+        if self.hdb_fallback_leaf and self.hdb_selection_method != 'leaf':
+            methods.append('leaf')
+
+        best_labels = None
+        best_score = None
+        for selection_method in methods:
+            labels = _fit(selection_method)
+            valid = labels[labels >= 0]
+            n_clusters = int(len(np.unique(valid)))
+            if n_clusters:
+                _, counts = np.unique(valid, return_counts=True)
+                largest = int(counts.max())
+            else:
+                largest = 0
+            largest_fraction = largest / max(1, n_points)
+            # Prefer more separated clusters and, among equal counts, avoid a
+            # single cluster consuming most of the foreground.
+            score = (n_clusters, -largest_fraction)
+            logger.info(
+                f"HDBSCAN[{selection_method}] found {n_clusters} clusters; "
+                f"largest={largest} ({largest_fraction:.1%}), "
+                f"noise={int((labels < 0).sum())}"
+            )
+            if best_score is None or score > best_score:
+                best_score = score
+                best_labels = labels
+            if n_clusters >= 2 and largest_fraction <= 0.75:
+                break
+
+        if best_labels is None:
+            return np.full(n_points, -1, dtype=int), 0
+        num_clusters = len(np.unique(best_labels[best_labels >= 0]))
+        logger.info(f"HDBSCAN selected {num_clusters} clusters")
+        return best_labels, num_clusters
+
+    def _cluster_dpc(self, pcd):
+        """Density Peak Clustering for spatially separated plant instances."""
+        points = np.asarray(pcd.points)
+        n_points = len(points)
+        if n_points == 0:
+            return np.full(0, -1, dtype=int), 0
+        if cKDTree is None:
+            return np.full(n_points, -1, dtype=int), 0
+
+        k = max(2, min(int(self.dpc_k), n_points - 1))
+        tree = cKDTree(points)
+        dists, nbrs = tree.query(points, k=k + 1, workers=-1)
+        dists = np.asarray(dists, dtype=np.float64)
+        nbrs = np.asarray(nbrs)
+        self_mask = nbrs == np.arange(n_points, dtype=nbrs.dtype)[:, None]
+        if self_mask.any(axis=1).all():
+            dists = np.delete(dists, 0, axis=1)
+            nbrs = np.delete(nbrs, 0, axis=1)
+            k -= 1
+        rho = 1.0 / (dists.mean(axis=1) + 1e-6)
+
+        order = np.argsort(rho)
+        rank = np.empty(n_points, dtype=np.int64)
+        rank[order] = np.arange(n_points)
+        higher = rank[nbrs] > rank[:, None]
+        candidate_d = np.where(higher, dists, np.inf)
+        best_j = np.argmin(candidate_d, axis=1)
+        best_d = candidate_d[np.arange(n_points), best_j]
+        has_higher = np.isfinite(best_d)
+        delta = np.where(has_higher, best_d, dists.max(axis=1))
+        gamma = rho * delta
+
+        target = int(round(n_points * max(0.0, self.dpc_center_fraction)))
+        target = max(max(2, self.dpc_min_centers), min(target, self.dpc_max_centers))
+        target = min(target, n_points)
+        candidates = np.argsort(gamma)[::-1]
+        centers = []
+        for idx in candidates:
+            if len(centers) >= target:
+                break
+            if not centers or np.min(np.linalg.norm(points[centers] - points[idx], axis=1)) >= self.dpc_min_sep:
+                centers.append(int(idx))
+        if len(centers) < max(2, self.dpc_min_centers):
+            for idx in candidates:
+                if int(idx) not in centers:
+                    centers.append(int(idx))
+                if len(centers) >= max(2, self.dpc_min_centers):
+                    break
+        if not centers:
+            return np.full(n_points, -1, dtype=int), 0
+        center_indices = np.asarray(centers, dtype=np.int64)
+        center_tree = cKDTree(points[center_indices])
+        _, nearest_center = center_tree.query(points, k=1, workers=-1)
+        nearest_center = np.asarray(nearest_center, dtype=np.int64)
+        labels = nearest_center.copy()
+
+        if self.dpc_assignment == 'density_chain':
+            # Standard DPC assignment: follow the nearest higher-density point
+            # instead of assigning every sample to the geometrically nearest
+            # centre. This keeps connected leaf surfaces in the same basin.
+            labels = np.full(n_points, -1, dtype=np.int64)
+            labels[center_indices] = np.arange(len(center_indices), dtype=np.int64)
+            for idx in order[::-1]:
+                if labels[idx] >= 0:
+                    continue
+                if has_higher[idx]:
+                    parent = int(nbrs[idx, best_j[idx]])
+                    if labels[parent] >= 0:
+                        labels[idx] = labels[parent]
+                        continue
+                # Points without a reachable higher-density parent fall back to
+                # the nearest selected density peak.
+                labels[idx] = nearest_center[idx]
+
+        logger.info(
+            f"DPC selected {len(centers)} centres from {n_points} points "
+            f"(k={k}, center_fraction={self.dpc_center_fraction}, "
+            f"min_sep={self.dpc_min_sep:.2f} m, assignment={self.dpc_assignment})."
+        )
+        return labels, len(centers)
+
+    def _cluster_meanshift_pp(self, pcd):
+        """Grid-seeded mean shift using flat-kernel mode seeking."""
+        points = np.asarray(pcd.points)
+        n_points = len(points)
+        if n_points == 0:
+            return np.full(0, -1, dtype=int), 0
+        if n_points == 1:
+            return np.zeros(1, dtype=int), 1
+
+        grid_size = max(float(self.mspp_grid_size), 1e-6)
+        keys = np.floor((points - points.min(axis=0)) / grid_size).astype(np.int64)
+        _, inverse, counts = np.unique(
+            keys, axis=0, return_inverse=True, return_counts=True
+        )
+        sums = np.zeros((len(counts), 3), dtype=np.float64)
+        np.add.at(sums, inverse, points)
+        seeds = sums / counts[:, None]
+        if self.mspp_max_seeds > 0 and len(seeds) > self.mspp_max_seeds:
+            idx = np.linspace(0, len(seeds) - 1, self.mspp_max_seeds, dtype=np.int64)
+            seeds = seeds[idx]
+
+        model = MeanShift(
+            bandwidth=self.mspp_bandwidth,
+            seeds=seeds,
+            bin_seeding=False,
+            cluster_all=True,
+            n_jobs=-1,
+        )
+        labels = np.asarray(model.fit_predict(points), dtype=np.int64)
+        num_clusters = len(np.unique(labels))
+        logger.info(
+            f"MeanShift++ found {num_clusters} clusters from {n_points} points "
+            f"(bandwidth={self.mspp_bandwidth:.2f}, grid={grid_size:.2f}, "
+            f"seeds={len(seeds)})."
+        )
+        return labels, int(num_clusters)
+
+
+    def _cluster_kmeans(self, pcd):
+        """MiniBatch KMeans baseline with an explicit cluster count."""
+        points = np.asarray(pcd.points)
+        n_points = len(points)
+        if n_points == 0:
+            return np.full(0, -1, dtype=int), 0
+        if self.km_feature_mode == 'xy':
+            features = points[:, :2]
+        elif self.km_feature_mode == 'xyz':
+            features = points[:, :3]
+        else:
+            raise ValueError(f"Unsupported kmeans.feature_mode: {self.km_feature_mode}")
+        n_clusters = max(2, min(int(self.km_n_clusters), n_points))
+        model = MiniBatchKMeans(
+            n_clusters=n_clusters,
+            batch_size=max(n_clusters, int(self.km_batch_size)),
+            n_init=self.km_n_init,
+            random_state=self.km_seed,
+        )
+        labels = np.asarray(model.fit_predict(features), dtype=np.int64)
+        logger.info(
+            f"MiniBatchKMeans found {n_clusters} clusters from {n_points} points "
+            f"(features={self.km_feature_mode})."
+        )
+        return labels, int(n_clusters)
+
+
+    def _cluster_optics(self, pcd):
+        """OPTICS clustering with xi-steepness extraction."""
+        points = np.asarray(pcd.points)
+        n_points = len(points)
+        if n_points == 0:
+            return np.full(0, -1, dtype=int), 0
+        model = OPTICS(
+            min_samples=max(2, min(self.optics_min_samples, n_points - 1)),
+            xi=self.optics_xi,
+            min_cluster_size=max(2, min(self.optics_min_cluster_size, n_points)),
+            max_eps=np.inf if self.optics_max_eps is None else self.optics_max_eps,
+            cluster_method='xi',
             metric='euclidean',
-            core_dist_n_jobs=-1)
-        labels = clusterer.fit_predict(points)
-        
-        num_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-        logger.info(f"HDBSCAN found {num_clusters} clusters")
-        return labels, num_clusters
+            n_jobs=-1,
+        )
+        labels = np.asarray(model.fit_predict(points), dtype=np.int64)
+        num_clusters = len(np.unique(labels[labels >= 0]))
+        logger.info(f"OPTICS found {num_clusters} clusters from {n_points} points.")
+        return labels, int(num_clusters)
+
+    def _cluster_birch(self, pcd):
+        """BIRCH hierarchical clustering with a target cluster count."""
+        points = np.asarray(pcd.points)
+        n_points = len(points)
+        if n_points == 0:
+            return np.full(0, -1, dtype=int), 0
+        n_clusters = max(2, min(self.birch_n_clusters, n_points))
+        model = Birch(
+            threshold=self.birch_threshold,
+            branching_factor=self.birch_branching_factor,
+            n_clusters=n_clusters,
+        )
+        labels = np.asarray(model.fit_predict(points), dtype=np.int64)
+        logger.info(
+            f"BIRCH found {n_clusters} clusters from {n_points} points "
+            f"(threshold={self.birch_threshold:.2f})."
+        )
+        return labels, int(n_clusters)
+
 
     # -------------------------------------------------------------------------
     # Mean Shift Logic
@@ -418,9 +779,14 @@ class InstanceClusterer:
                 
                 if len(lbl_points) < 50: continue
 
-                feat = self._compute_geometric_features(lbl_points)
-                mins = lbl_points.min(axis=0)
-                maxs = lbl_points.max(axis=0)
+                if self.horizontal_split_only:
+                    feat = self._compute_horizontal_features(lbl_points)
+                    mins = lbl_points[:, :2].min(axis=0)
+                    maxs = lbl_points[:, :2].max(axis=0)
+                else:
+                    feat = self._compute_geometric_features(lbl_points)
+                    mins = lbl_points.min(axis=0)
+                    maxs = lbl_points.max(axis=0)
                 dims = maxs - mins
                 max_axis = dims.max()
                 
@@ -435,11 +801,15 @@ class InstanceClusterer:
                 
                 if is_abnormal:
                     indices = np.where(mask)[0]
-                    sub_labels_list = self._recursive_skeleton_split(
-                        points, indices, depth=0, min_peak_dist_m=self.min_peak_dist_m)
+                    if self.horizontal_split_only:
+                        sub_labels_list = self._recursive_horizontal_split(
+                            points, indices, depth=0, min_peak_dist_m=self.min_peak_dist_m)
+                    else:
+                        sub_labels_list = self._recursive_skeleton_split(
+                            points, indices, depth=0, min_peak_dist_m=self.min_peak_dist_m)
 
                     fallback_used = False
-                    if (len(sub_labels_list) == 1 and self.dynamic_peak_enable
+                    if (not self.horizontal_split_only and len(sub_labels_list) == 1 and self.dynamic_peak_enable
                             and (is_huge or (self.dynamic_peak_allow_elongated and is_elongated))
                             and (not self.dynamic_peak_once_per_branch or lbl not in dynamic_locked)):
                         dynamic_dist = self._dynamic_peak_distance(feat['L1'])
@@ -496,6 +866,99 @@ class InstanceClusterer:
             int(np.ceil(self.dynamic_peak_min_child_fraction * parent_points)),
         )
         return min(len(part) for part in split_indices) >= min_required
+
+    def _compute_horizontal_features(self, points):
+        """Return PCA-like features in the XY ground plane.
+
+        The returned ``v1`` is guaranteed to be horizontal, so a cut plane
+        derived from it is a vertical wall through the ground-plane extent.
+        """
+        pts = np.asarray(points)
+        xy = pts[:, :3].copy()
+        z = xy[:, 2].copy()
+        xy[:, 2] = 0.0
+        feat = self._compute_geometric_features(xy)
+        feat['center'] = pts[:, :3].mean(axis=0)
+        feat['z_extent'] = float(np.percentile(z, 99) - np.percentile(z, 1)) if len(z) else 0.0
+        return feat
+
+    def _recursive_horizontal_split(self, all_points, indices, depth, min_peak_dist_m=None):
+        """Recursively split a cluster with a horizontal 1-D density profile.
+
+        This is the maize-safe counterpart of ``_recursive_skeleton_split``:
+        peaks are searched on the XY projection, and the cut normal is forced
+        to lie in the XY plane.  Therefore it separates touching neighbours
+        laterally but never cuts a single plant into top and bottom pieces.
+        """
+        if len(indices) < 50 or depth >= 3:
+            return [indices]
+        if min_peak_dist_m is None:
+            min_peak_dist_m = self.min_peak_dist_m
+
+        subset_pts = all_points[indices]
+        xy = subset_pts[:, :2]
+        center_xy = xy.mean(axis=0)
+        centered = xy - center_xy
+        cov = np.cov(centered.T)
+        if cov.shape != (2, 2) or not np.all(np.isfinite(cov)):
+            return [indices]
+        evals, evecs = np.linalg.eigh(cov)
+        v1 = evecs[:, int(np.argmax(evals))]
+        v1 = np.asarray(v1, dtype=float)
+        # Deterministic orientation.
+        if v1[0] < 0 or (abs(v1[0]) < 1e-12 and v1[1] < 0):
+            v1 = -v1
+        norm = np.linalg.norm(v1)
+        if norm < 1e-12:
+            return [indices]
+        v1 /= norm
+
+        scalars = centered @ v1
+        length = float(scalars.max() - scalars.min())
+        # A single maize plant has a small XY footprint.  Do not split unless
+        # the horizontal extent is at least the configured peak spacing.
+        if length < max(float(min_peak_dist_m), 0.20):
+            return [indices]
+
+        nbins = self.skel_bins
+        if length / nbins < 0.02:
+            nbins = max(5, int(length / 0.02))
+        counts, edges = np.histogram(scalars, bins=nbins)
+        density_smooth = gaussian_filter(counts.astype(float), sigma=0.5)
+        bin_width = length / nbins
+        min_dist_bins = max(1, int(round(min_peak_dist_m / bin_width)))
+        peaks, _ = find_peaks(
+            density_smooth,
+            distance=min_dist_bins,
+            height=np.max(density_smooth) * 0.10,
+        )
+        if len(peaks) < 2:
+            return [indices]
+
+        first_peak = int(peaks[0])
+        last_peak = int(peaks[-1])
+        valley_idx = first_peak + int(np.argmin(density_smooth[first_peak:last_peak + 1]))
+        valley_h = float(density_smooth[valley_idx])
+        peak_h = float(min(density_smooth[first_peak], density_smooth[last_peak]))
+        ratio = valley_h / (peak_h + 1e-6)
+        valley_thresh = self.valley_depth_rel
+        if self.adaptive_thresh and length > 0.60:
+            valley_thresh = max(valley_thresh, 0.98)
+        if ratio >= valley_thresh:
+            return [indices]
+
+        cut_scalar = 0.5 * (edges[valley_idx] + edges[valley_idx + 1])
+        cut_center_xy = center_xy + cut_scalar * v1
+        signed = (xy - cut_center_xy) @ v1
+        left = signed < 0
+        idx1 = indices[left]
+        idx2 = indices[~left]
+        if len(idx1) < 10 or len(idx2) < 10:
+            return [indices]
+        return (
+            self._recursive_horizontal_split(all_points, idx1, depth + 1, min_peak_dist_m)
+            + self._recursive_horizontal_split(all_points, idx2, depth + 1, min_peak_dist_m)
+        )
 
     def _recursive_skeleton_split(self, all_points, indices, depth, min_peak_dist_m=None):
         if len(indices) < 50 or depth >= 3: 
@@ -775,10 +1238,175 @@ class InstanceClusterer:
             
         return new_labels
 
+    def _reassign_fragments_knn(self, labels, points):
+        """Reassign fragments using distance-weighted k-NN voting."""
+        if cKDTree is None:
+            return labels
+
+        unique_labels, counts = np.unique(labels, return_counts=True)
+        valid = unique_labels >= 0
+        unique_labels = unique_labels[valid]
+        counts = counts[valid]
+        if len(unique_labels) < 2:
+            return labels
+
+        candidate_labels = []
+        target_labels = []
+        length_thresh = max(0.0, float(self.vote_fragment_length))
+        for lbl, count in zip(unique_labels, counts):
+            mask = labels == lbl
+            if count < self.vote_merge:
+                candidate_labels.append(lbl)
+                continue
+            feat = self._compute_geometric_features(points[mask])
+            major_length = float(feat['L1']) if feat is not None else 0.0
+            if major_length < length_thresh:
+                candidate_labels.append(lbl)
+            else:
+                target_labels.append(lbl)
+
+        if not candidate_labels or not target_labels:
+            return labels
+
+        candidate_mask = np.isin(labels, candidate_labels)
+        target_mask = np.isin(labels, target_labels)
+        candidate_points = points[candidate_mask]
+        target_points = points[target_mask]
+        target_point_labels = labels[target_mask]
+        if len(candidate_points) == 0 or len(target_points) == 0:
+            return labels
+
+        k = max(1, min(int(self.vote_knn_k), len(target_points)))
+        tree = cKDTree(target_points)
+        if self.vote_knn_max_dist > 0:
+            dists, nbrs = tree.query(
+                candidate_points, k=k,
+                distance_upper_bound=float(self.vote_knn_max_dist),
+            )
+        else:
+            dists, nbrs = tree.query(candidate_points, k=k)
+        if k == 1:
+            dists = np.asarray(dists)[:, None]
+            nbrs = np.asarray(nbrs)[:, None]
+        else:
+            dists = np.asarray(dists)
+            nbrs = np.asarray(nbrs)
+
+        valid_nbr = np.isfinite(dists)
+        weights = np.zeros_like(dists, dtype=np.float64)
+        weights[valid_nbr] = 1.0 / (dists[valid_nbr] + self.vote_knn_eps)
+        neighbor_labels = np.full(nbrs.shape, -1, dtype=labels.dtype)
+        if valid_nbr.any():
+            neighbor_labels[valid_nbr] = target_point_labels[nbrs[valid_nbr]]
+
+        target_labels_arr = np.asarray(target_labels, dtype=labels.dtype)
+        label_to_col = {int(lbl): i for i, lbl in enumerate(target_labels_arr)}
+        scores = np.zeros((len(candidate_points), len(target_labels_arr)), dtype=np.float64)
+        rows = np.arange(len(candidate_points))
+        for j in range(k):
+            labels_j = neighbor_labels[:, j]
+            valid_j = labels_j >= 0
+            if not valid_j.any():
+                continue
+            cols = np.fromiter(
+                (label_to_col[int(lbl)] for lbl in labels_j[valid_j]),
+                dtype=np.int64,
+                count=int(valid_j.sum()),
+            )
+            np.add.at(scores, (rows[valid_j], cols), weights[valid_j, j])
+
+        best_col = scores.argmax(axis=1)
+        best_score = scores[rows, best_col]
+        assigned = best_score > 0
+        out = labels.copy()
+        candidate_idx = np.flatnonzero(candidate_mask)
+        out[candidate_idx[assigned]] = target_labels_arr[best_col[assigned]]
+        logger.info(
+            f"kNN-R reassigned {int(assigned.sum())}/{len(candidate_points)} points "
+            f"from {len(candidate_labels)} fragments to {len(target_labels)} complete instances "
+            f"(k={k}, theta_L={length_thresh:.3f} m)."
+        )
+        return out
+
 
     # -------------------------------------------------------------------------
     # Merge Back Logic
     # -------------------------------------------------------------------------
+    def _merge_vertical_fragments(self, labels, points):
+        """Merge same-plant fragments separated mainly along the Z axis.
+
+        Unlike ``_merge_fragments`` this test is deliberately conservative:
+        fragments must be close in XY, separated in Z, overlap in their XY
+        occupancy grids, and remain inside a plausible single-plant footprint.
+        This repairs PointGroup-native vertical fragmentation without merging
+        neighbouring maize plants that only happen to have close centroids.
+        """
+        unique_labels = np.unique(labels)
+        unique_labels = unique_labels[unique_labels >= 0]
+        if len(unique_labels) < 2:
+            return labels
+
+        stats = {}
+        cell = max(float(self.vertical_merge_cell_size), 1e-6)
+        for lbl in unique_labels:
+            mask = labels == lbl
+            pts = points[mask]
+            if len(pts) < 10:
+                continue
+            xy = pts[:, :2]
+            cells = set(map(tuple, np.floor(xy / cell).astype(np.int64)))
+            stats[int(lbl)] = {
+                'center_xy': xy.mean(axis=0),
+                'center_z': float(pts[:, 2].mean()),
+                'cells': cells,
+                'bbox_min': xy.min(axis=0),
+                'bbox_max': xy.max(axis=0),
+            }
+
+        if len(stats) < 2:
+            return labels
+
+        parent = {lbl: lbl for lbl in stats}
+
+        def find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def union(a, b):
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[rb] = ra
+
+        keys = list(stats)
+        for i, a in enumerate(keys):
+            sa = stats[a]
+            for b in keys[i + 1:]:
+                sb = stats[b]
+                d_xy = float(np.linalg.norm(sa['center_xy'] - sb['center_xy']))
+                if d_xy > self.vertical_merge_max_xy:
+                    continue
+                d_z = abs(sa['center_z'] - sb['center_z'])
+                if d_z < self.vertical_merge_min_z_sep:
+                    continue
+                denom = min(len(sa['cells']), len(sb['cells']))
+                overlap = len(sa['cells'].intersection(sb['cells'])) / denom if denom else 0.0
+                if overlap < self.vertical_merge_min_overlap:
+                    continue
+                lo = np.minimum(sa['bbox_min'], sb['bbox_min'])
+                hi = np.maximum(sa['bbox_max'], sb['bbox_max'])
+                if float(np.linalg.norm(hi - lo)) > self.vertical_merge_max_diag:
+                    continue
+                union(a, b)
+
+        merged = labels.copy()
+        for lbl in keys:
+            root = find(lbl)
+            if root != lbl:
+                merged[labels == lbl] = root
+        return merged
+
     def _merge_fragments(self, labels, points):
         unique_labels = np.unique(labels)
         unique_labels = unique_labels[unique_labels != -1]
@@ -835,13 +1463,87 @@ class InstanceClusterer:
                 new_labels[labels==lbl] = root
         return new_labels
 
-    def _simple_filter(self, labels):
+    def _reassign_noise(self, labels, points):
+        """Reassign -1 points to nearby valid instances by k-NN voting.
+
+        A noise point is assigned only when at least
+        ``noise_reassign_min_votes`` among its ``noise_reassign_k`` nearest
+        assigned points lie within ``noise_reassign_radius`` and share the same
+        label.  Isolated noise points remain labelled -1.
+        """
+        if cKDTree is None or mode is None:
+            return labels
+        noise_idx = np.flatnonzero(labels == -1)
+        assigned_idx = np.flatnonzero(labels >= 0)
+        if len(noise_idx) == 0 or len(assigned_idx) == 0:
+            return labels
+
+        k = max(1, min(int(self.noise_reassign_k), len(assigned_idx)))
+        radius = float(self.noise_reassign_radius)
+        tree = cKDTree(points[assigned_idx])
+        dist, nbr = tree.query(points[noise_idx], k=k, distance_upper_bound=radius)
+        if k == 1:
+            dist = np.asarray(dist)[:, None]
+            nbr = np.asarray(nbr)[:, None]
+        else:
+            dist = np.asarray(dist)
+            nbr = np.asarray(nbr)
+
+        valid = np.isfinite(dist) & (dist <= radius)
+        neigh = np.full(dist.shape, -1, dtype=labels.dtype)
+        if valid.any():
+            neigh[valid] = labels[assigned_idx][nbr[valid]]
+
+        min_votes = max(1, min(int(self.noise_reassign_min_votes), k))
+        modes, counts = mode(neigh, axis=1, keepdims=False)
+        assign = (counts >= min_votes) & (modes >= 0)
+        out = labels.copy()
+        out[noise_idx[assign]] = modes[assign]
+        logger.info(
+            f"Noise reassignment: {int(assign.sum())}/{len(noise_idx)} points "
+            f"assigned (radius={radius} m, k={k}, min_votes={min_votes})."
+        )
+        return out
+
+    def _simple_filter(self, labels, n_points=None):
+        """Remove clusters outside the configured size range.
+
+        For HDBSCAN, ``min_cluster_points`` may be a fraction in (0, 1), and
+        ``max_cluster_fraction`` (under ``instance.hdbscan``) scales the upper
+        bound with the current foreground size.  The upper bound is therefore
+        never smaller than the configured absolute max.
+        """
         counts = Counter(labels)
         new_labels = labels.copy()
+
+        min_points = self.min_points
+        if (self.method == 'hdbscan' and n_points is not None
+                and isinstance(min_points, float) and 0.0 < min_points < 1.0):
+            min_points = max(1, int(round(min_points * n_points)))
+
+        max_points = self.max_points
+        if (self.method == 'hdbscan' and n_points is not None
+                and self.hdb_max_cluster_fraction is not None):
+            frac = float(self.hdb_max_cluster_fraction)
+            if 0.0 < frac < 1.0:
+                scaled_max = max(1, int(round(frac * n_points)))
+                max_points = scaled_max if max_points is None else max(int(max_points), scaled_max)
+
+        large_kept = 0
         for lbl, count in counts.items():
-            if lbl == -1: continue
-            if count < self.min_points or count > self.max_points:
+            if lbl == -1:
+                continue
+            too_small = count < int(min_points)
+            too_large = (max_points is not None and int(max_points) > 0 and count > int(max_points))
+            if too_small:
                 new_labels[labels == lbl] = -1
+            elif too_large:
+                if self.drop_oversized_clusters:
+                    new_labels[labels == lbl] = -1
+                else:
+                    large_kept += 1
+        if large_kept:
+            logger.info(f"Kept {large_kept} oversized clusters; max_cluster_points is not used as a deletion threshold.")
         return new_labels
 
     def _renumber_labels(self, labels):

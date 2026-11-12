@@ -83,8 +83,9 @@ def _load_pointgroup(cfg):
 
     model = Network(pg_cfg).cuda()
     model.eval()
+    _pg_pretrain = seg_cfg.get('pointgroup_pretrain', '')
     start_epoch = utils.checkpoint_restore(model, pg_cfg.exp_path,
-        pg_cfg.config.split('/')[-1][:-5], True, pg_cfg.test_epoch)
+        pg_cfg.config.split('/')[-1][:-5], True, 0, f=_pg_pretrain)
     logger.info(f"PointGroup loaded: epoch {start_epoch-1}")
     model_fn = model_fn_decorator(test=True)
     return model, model_fn, pg_cfg, seg_cfg, pointgroup_ops
@@ -128,12 +129,14 @@ def _pointgroup_forward(xyz_shifted, rgb, model, model_fn, pg_cfg, pgo):
 
 
 def _extract_instances_from_proposals(proposals_idx, proposals_offset, scores_pred,
-                                        N, seg_cfg):
+                                        N, seg_cfg, return_scores=False):
     """从原始 proposals 提取实例标签 (含 NMS 过滤).
     Returns: inst_labels (N,) 0=背景/unassigned, 1+=instance
     """
     nProp = proposals_offset.shape[0] - 1
     if nProp == 0:
+        if return_scores:
+            return np.zeros(N, dtype=np.int64), np.zeros(0, dtype=np.float32)
         return np.zeros(N, dtype=np.int64)
 
     proposals_mask = torch.zeros((nProp, N), dtype=torch.int, device=scores_pred.device)
@@ -147,6 +150,7 @@ def _extract_instances_from_proposals(proposals_idx, proposals_offset, scores_pr
         proposals_mask, scores_pred = proposals_mask[npoint_mask], scores_pred[npoint_mask]
 
     # NMS by IoU
+    kept_scores = np.zeros(0, dtype=np.float32)
     if proposals_mask.shape[0] > 1:
         proposals_f = proposals_mask.float()
         inter = torch.mm(proposals_f, proposals_f.t())
@@ -161,8 +165,11 @@ def _extract_instances_from_proposals(proposals_idx, proposals_offset, scores_pr
             rm = np.where(ious_np[i, ixs[1:]] > 0.5)[0] + 1
             ixs = np.delete(ixs, rm)
             ixs = np.delete(ixs, 0)
-        proposals_mask = proposals_mask[np.array(pick)].cpu().numpy()
+        pick = np.asarray(pick, dtype=np.int64)
+        kept_scores = scores_pred.detach().cpu().numpy()[pick].astype(np.float32)
+        proposals_mask = proposals_mask[pick].cpu().numpy()
     elif proposals_mask.shape[0] == 1:
+        kept_scores = scores_pred.detach().cpu().numpy().astype(np.float32)
         proposals_mask = proposals_mask.cpu().numpy()
     else:
         proposals_mask = np.zeros((0, N), dtype=np.int64)
@@ -170,6 +177,8 @@ def _extract_instances_from_proposals(proposals_idx, proposals_offset, scores_pr
     inst = np.zeros(N, dtype=np.int64)
     for i in range(len(proposals_mask)):
         inst[proposals_mask[i] == 1] = i + 1
+    if return_scores:
+        return inst, kept_scores
     return inst
 
 
@@ -293,7 +302,7 @@ def _post_semantic_filter(mask_cabbage, xyz, cfg):
     return mask
 
 
-def pointgroup_segment_blocks(pcd, cfg, method='hybrid', selection='nms'):
+def pointgroup_segment_blocks(pcd, cfg, method='hybrid', selection='nms', return_meta=False):
     """分块 PointGroup 推理 + 提案筛选策略.
     selection: 'nms' (PointGroup) 或 'greedy' (SoftGroup 贪心)
     """
@@ -350,43 +359,75 @@ def pointgroup_segment_blocks(pcd, cfg, method='hybrid', selection='nms'):
     total_votes = np.zeros(N_total, dtype=np.int32)
 
     # 实例: 收集所有 proposal (全局点索引集合)
-    all_proposals = []   # list of np.array (global indices)
-    next_inst_offset = 0
+    all_proposals = []
+    all_scores = []
     sem_thresh = seg_cfg.get('pg_sem_thresh', 0)
 
+    max_npoint = int(seg_cfg.get('pg_max_npoint', 250000))
+    voxel_size = float(seg_cfg.get('pg_voxel_size', 0.02))
     for bi, block in enumerate(blocks):
         gidx = block['global_idx']
         block_xyz = xyz[gidx] - block['origin']
         block_rgb = rgb[gidx]
 
+        # Deterministic voxel representatives make overlapping blocks share
+        # the same points, which is required for cross-block proposal union.
+        if voxel_size > 0:
+            q = np.floor(block_xyz / voxel_size).astype(np.int64)
+            _, keep = np.unique(q, axis=0, return_index=True)
+            proc = np.sort(keep)
+        else:
+            proc = np.arange(len(gidx), dtype=np.int64)
+        if len(proc) > max_npoint:
+            take = np.linspace(0, len(proc) - 1, max_npoint).astype(np.int64)
+            proc = proc[take]
+        proc_xyz = block_xyz[proc]
+        proc_rgb = block_rgb[proc]
+
         sem_scores, prop_idx, prop_off, scores, _ = _pointgroup_forward(
-            block_xyz, block_rgb, model, model_fn, pg_cfg, pgo)
+            proc_xyz, proc_rgb, model, model_fn, pg_cfg, pgo)
 
-        inst_local = extract_fn(
-            prop_idx, prop_off, scores, len(gidx), seg_cfg)
+        sem_pred_proc = sem_scores.max(1)[1].cpu().numpy()
+        sem_prob_proc = torch.softmax(sem_scores, dim=1)[:, 1].cpu().numpy()
+        if len(proc) < len(gidx):
+            tree = cKDTree(proc_xyz[:, :2])
+            _, nn = tree.query(block_xyz[:, :2], k=1)
+            sem_pred_all = sem_pred_proc[nn]
+            sem_prob_all = sem_prob_proc[nn]
+        else:
+            nn = None
+            sem_pred_all = sem_pred_proc
+            sem_prob_all = sem_prob_proc
 
-        # 记录语义投票 (使用概率阈值代替 argmax)
-        for i, gi in enumerate(gidx):
-            total_votes[gi] += 1
-            if sem_thresh > 0:
-                prob = float(torch.softmax(sem_scores, dim=1)[i, 1])
-                if prob > sem_thresh:
-                    cabbage_votes[gi] += 1
+        total_votes[gidx] += 1
+        if sem_thresh > 0:
+            cabbage_votes[gidx] += (sem_prob_all > sem_thresh)
+        else:
+            cabbage_votes[gidx] += (sem_pred_all == 1)
+
+        if selection == 'nms':
+            inst_local, kept_scores = extract_fn(
+                prop_idx, prop_off, scores, len(proc), seg_cfg, return_scores=True)
+        else:
+            inst_local = extract_fn(
+                prop_idx, prop_off, scores, len(proc), seg_cfg)
+            kept_scores = np.ones(int(inst_local.max()), dtype=np.float32)
+        n_inst = int(inst_local.max())
+        for inst_id in range(1, n_inst + 1):
+            pts_proc = np.where(inst_local == inst_id)[0]
+            if len(pts_proc) < seg_cfg.get('pg_npoint_thresh', 30):
+                continue
+            if nn is None:
+                pts_global = gidx[pts_proc]
             else:
-                if sem_scores.max(1)[1][i] == 1:
-                    cabbage_votes[gi] += 1
-
-        # 收集 proposals (转为全局点索引)
-        n_inst = inst_local.max()
-        for inst_id in range(1, int(n_inst) + 1):
-            pts_local = np.where(inst_local == inst_id)[0]
-            if len(pts_local) >= seg_cfg.get('pg_npoint_thresh', 30):
-                all_proposals.append(gidx[pts_local])
+                pts_global = gidx[np.isin(nn, pts_proc)]
+            if len(pts_global) >= seg_cfg.get('pg_npoint_thresh', 30):
+                all_proposals.append(pts_global)
+                all_scores.append(float(kept_scores[inst_id - 1]))
 
         if (bi + 1) % max(1, len(blocks) // 5) == 0 or bi == len(blocks) - 1:
-            logger.info(f"  块 {bi+1}/{len(blocks)}: {len(gidx):,}pts, {n_inst} proposals")
+            logger.info(f"  block {bi+1}/{len(blocks)}: {len(gidx):,}pts, {n_inst} proposals")
 
-    # --- 语义合并: 多数投票 ---
     mask_cabbage = np.zeros(N_total, dtype=bool)
     voted = total_votes > 0
     mask_cabbage[voted] = cabbage_votes[voted] >= (total_votes[voted] * 0.5)
@@ -396,7 +437,7 @@ def pointgroup_segment_blocks(pcd, cfg, method='hybrid', selection='nms'):
 
     # --- 实例合并: Union-Find 跨块合并重叠 proposal ---
     n_prop = len(all_proposals)
-    logger.info(f"共 {n_prop} 个 proposals, 开始跨块合并...")
+    logger.info(f"Total {n_prop} proposals, starting cross-block union and global NMS...")
 
     if n_prop > 0:
         parent = list(range(n_prop))
@@ -412,26 +453,14 @@ def pointgroup_segment_blocks(pcd, cfg, method='hybrid', selection='nms'):
             if rx != ry:
                 parent[rx] = ry
 
-        # 构建 proposal→blocks 映射, 只比较不同块的 proposal
-        prop_to_block = {}
-        prop_sizes = []
-        for pi, pts in enumerate(all_proposals):
-            prop_sizes.append(len(pts))
-            # 找到这个 proposal 属于哪个块 (通过第一个点的块归属)
-            for bi, block in enumerate(blocks):
-                if pts[0] in set(block['global_idx']):
-                    prop_to_block[pi] = bi
-                    break
-            else:
-                prop_to_block[pi] = -1
-
-        # 用哈希加速: point → list of proposal indices
+        # Merge proposals sharing the same global points. IoU alone is too
+        # strict when one block contains a larger fragment, so use the
+        # intersection-over-smaller-area criterion as a second condition.
         point_to_props = {}
         for pi, pts in enumerate(all_proposals):
             for p in pts:
                 point_to_props.setdefault(int(p), []).append(pi)
-
-        # 只合并不同块的 proposal (同块的已被 NMS 处理)
+        overlap_thresh = float(seg_cfg.get('pg_block_overlap_thresh', 0.35))
         merged_pairs = set()
         for point, prop_list in point_to_props.items():
             if len(prop_list) < 2:
@@ -439,40 +468,76 @@ def pointgroup_segment_blocks(pcd, cfg, method='hybrid', selection='nms'):
             for i in range(len(prop_list)):
                 for j in range(i + 1, len(prop_list)):
                     pa, pb = prop_list[i], prop_list[j]
-                    if prop_to_block.get(pa, -1) == prop_to_block.get(pb, -1):
-                        continue  # 同块不合并
                     pair = (min(pa, pb), max(pa, pb))
                     if pair in merged_pairs:
                         continue
                     merged_pairs.add(pair)
-                    # 计算重叠度
-                    set_a = set(all_proposals[pa])
-                    set_b = set(all_proposals[pb])
-                    inter = len(set_a & set_b)
-                    union_size = len(set_a | set_b)
-                    iou = inter / union_size if union_size > 0 else 0
-                    if iou >= merge_iou:
+                    a = set(map(int, all_proposals[pa]))
+                    b = set(map(int, all_proposals[pb]))
+                    inter = len(a & b)
+                    iou = inter / max(1, len(a | b))
+                    overlap = inter / max(1, min(len(a), len(b)))
+                    if iou >= merge_iou or overlap >= overlap_thresh:
                         union(pa, pb)
 
-        # 分配全局实例 ID
-        root_to_id = {}
+        groups = {}
+        for pi in range(n_prop):
+            groups.setdefault(find(pi), []).append(pi)
+        merged = []
+        for ids in groups.values():
+            pts = np.unique(np.concatenate([all_proposals[i] for i in ids]))
+            score = max(all_scores[i] for i in ids)
+            merged.append((pts, float(score)))
+
+        # Global greedy NMS across the merged proposals. This removes the
+        # same plant proposed by several overlapping blocks, which local
+        # tile-level NMS cannot see.
+        centroids = np.asarray([xyz[p].mean(0) for p, _ in merged], dtype=np.float32)
+        boxes = np.asarray([[xyz[p].min(0), xyz[p].max(0)] for p, _ in merged], dtype=np.float32)
+        order = np.argsort([-s for _, s in merged])
+        nms_iou = float(seg_cfg.get('pg_global_nms_iou', 0.30))
+        nms_overlap = float(seg_cfg.get('pg_global_nms_overlap', 0.65))
+        nms_centroid = float(seg_cfg.get('pg_global_nms_centroid', 0.08))
+        keep = []
+        for i in order:
+            pi, si = merged[i]
+            duplicate = False
+            for j in keep:
+                # AABB pre-check avoids expensive set intersections for shots
+                # that cannot overlap.
+                if np.linalg.norm(centroids[i] - centroids[j]) > nms_centroid:
+                    if (boxes[i, 0] > boxes[j, 1]).any() or (boxes[j, 0] > boxes[i, 1]).any():
+                        continue
+                pj, sj = merged[j]
+                inter = np.intersect1d(pi, pj, assume_unique=True).size
+                if inter == 0:
+                    continue
+                iou = inter / max(1, len(pi) + len(pj) - inter)
+                overlap = inter / max(1, min(len(pi), len(pj)))
+                if iou >= nms_iou or overlap >= nms_overlap:
+                    duplicate = True
+                    break
+            if not duplicate:
+                keep.append(i)
+
+        # Score-based assignment: each point belongs to its highest-score
+        # surviving proposal instead of the last proposal that overwrites it.
         inst_global = np.zeros(N_total, dtype=np.int64)
-        next_id = 1
-
-        for pi, pts in enumerate(all_proposals):
-            root = find(pi)
-            if root not in root_to_id:
-                root_to_id[root] = next_id
-                next_id += 1
-            inst_global[pts] = root_to_id[root]
-
-        n_merged = next_id - 1
-        logger.info(f"实例合并: {n_prop} proposals → {n_merged} instances")
+        best_score = np.full(N_total, -np.inf, dtype=np.float32)
+        for out_id, mi in enumerate(keep, start=1):
+            pts = merged[mi][0]
+            score = merged[mi][1]
+            take = score > best_score[pts]
+            if take.any():
+                sel = pts[take]
+                inst_global[sel] = out_id
+                best_score[sel] = score
+        n_merged = int(inst_global.max())
+        logger.info(f"Instance merge: {n_prop} proposals -> {len(groups)} unions -> {n_merged} global instances")
     else:
         inst_global = np.zeros(N_total, dtype=np.int64)
         n_merged = 0
 
-    # --- 构建输出 ---
     cabbage_xyz = xyz[mask_cabbage]
     cabbage_pcd = o3d.geometry.PointCloud()
     cabbage_pcd.points = o3d.utility.Vector3dVector(cabbage_xyz)
@@ -480,6 +545,8 @@ def pointgroup_segment_blocks(pcd, cfg, method='hybrid', selection='nms'):
 
     inst_cabbage = inst_global[mask_cabbage]
     logger.info(f"PointGroup(分块): cabbage={n_cabbage:,}pts, {n_merged} instances")
+    if return_meta:
+        return cabbage_pcd, inst_cabbage, mask_cabbage, inst_global
     return cabbage_pcd, inst_cabbage
 
 

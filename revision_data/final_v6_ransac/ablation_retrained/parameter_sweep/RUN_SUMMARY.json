@@ -1,0 +1,25 @@
+{
+  "protocol": "validation-only end-to-end parameter sweep; test scenes excluded",
+  "scenes": [
+    "cloudR3",
+    "cloudR6",
+    "cloudR16",
+    "cloudR20"
+  ],
+  "grid": {
+    "min_peak_dist_m": [
+      0.3,
+      0.35
+    ],
+    "valley_depth_rel": [
+      0.85,
+      0.9,
+      0.95
+    ]
+  },
+  "models": [
+    "PointNeXt-L",
+    "PointGroup"
+  ],
+  "rows": 48
+}

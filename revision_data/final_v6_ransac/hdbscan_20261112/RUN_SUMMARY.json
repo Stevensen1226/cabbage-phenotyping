@@ -1,0 +1,26 @@
+{
+  "generated_at": "2026-11-12 12:06:16",
+  "scenes": [
+    "cloudR2",
+    "cloudR5",
+    "cloudR9",
+    "cloudR12",
+    "cloudR14",
+    "cloudR18"
+  ],
+  "models": [
+    "RandLA-Net",
+    "PointNet2-RGB",
+    "PointNeXt-L",
+    "PointGroup"
+  ],
+  "clustering": "hdbscan",
+  "hdbscan": {
+    "min_cluster_size": 500,
+    "min_samples": 10,
+    "cluster_selection_method": "eom"
+  },
+  "rows": 48,
+  "plant_mapping_rows": 816,
+  "config_dir": "E:\\Cabbage\\revision_data\\final_v6_ransac\\configs\\hdbscan_20261112"
+}

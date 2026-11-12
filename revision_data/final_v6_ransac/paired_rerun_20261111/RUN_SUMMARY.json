@@ -1,0 +1,12 @@
+{
+  "raw_traits": "E:\\Cabbage\\revision_data\\final_v6_ransac\\paired_rerun_20261111\\raw_traits",
+  "paired_deltas": "E:\\Cabbage\\revision_data\\final_v6_ransac\\paired_rerun_20261111\\v6_paired_trait_deltas.csv",
+  "statistics": "E:\\Cabbage\\revision_data\\final_v6_ransac\\paired_rerun_20261111\\v6_paired_trait_statistics.csv",
+  "registry": "E:\\Cabbage\\revision_data\\splits\\test_plant_registry.csv",
+  "models": [
+    "RandLA-Net",
+    "PointNet2-RGB",
+    "PointNeXt-L",
+    "PointGroup"
+  ]
+}

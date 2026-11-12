@@ -163,7 +163,10 @@ instance:
   min_cluster_points: 2000       # 🗑️ 小于此值的碎片直接丢弃
   max_cluster_points: 100000
   # 噪声重归入距离上限: 距最近簇 > 此值的 -1 点直接丢弃, 不硬塞进植株(防远噪声点拉大冠幅)
-  noise_reassign_radius: 0.10
+  noise_reassign_radius: 0.0
+  noise_reassign_k: 5
+  noise_reassign_min_votes: 3
+  drop_oversized_clusters: true
 
 # 评估参数
 evaluation:

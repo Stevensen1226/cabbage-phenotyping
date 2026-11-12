@@ -1,0 +1,179 @@
+{
+    "protocol":  "fixed 13/4/6 sub-region split for COMPAG-D-26-10878 revision; real cloudR22/cloudR23 restored 2026-11-02",
+    "train_subregions":  [
+                             "cloudR1",
+                             "cloudR4",
+                             "cloudR7",
+                             "cloudR8",
+                             "cloudR10",
+                             "cloudR11",
+                             "cloudR13",
+                             "cloudR15",
+                             "cloudR17",
+                             "cloudR19",
+                             "cloudR21",
+                             "cloudR22",
+                             "cloudR23"
+                         ],
+    "val_subregions":  [
+                           "cloudR3",
+                           "cloudR6",
+                           "cloudR16",
+                           "cloudR20"
+                       ],
+    "test_subregions":  [
+                            "cloudR2",
+                            "cloudR5",
+                            "cloudR9",
+                            "cloudR12",
+                            "cloudR14",
+                            "cloudR18"
+                        ],
+    "scene_counts":  {
+                         "cloudR1":  {
+                                         "split":  "train",
+                                         "num_points":  86875,
+                                         "num_instances":  8
+                                     },
+                         "cloudR4":  {
+                                         "split":  "train",
+                                         "num_points":  168203,
+                                         "num_instances":  10
+                                     },
+                         "cloudR7":  {
+                                         "split":  "train",
+                                         "num_points":  80739,
+                                         "num_instances":  8
+                                     },
+                         "cloudR8":  {
+                                         "split":  "train",
+                                         "num_points":  221410,
+                                         "num_instances":  18
+                                     },
+                         "cloudR10":  {
+                                          "split":  "train",
+                                          "num_points":  444286,
+                                          "num_instances":  31
+                                      },
+                         "cloudR11":  {
+                                          "split":  "train",
+                                          "num_points":  182726,
+                                          "num_instances":  15
+                                      },
+                         "cloudR13":  {
+                                          "split":  "train",
+                                          "num_points":  352566,
+                                          "num_instances":  26
+                                      },
+                         "cloudR15":  {
+                                          "split":  "train",
+                                          "num_points":  207626,
+                                          "num_instances":  16
+                                      },
+                         "cloudR17":  {
+                                          "split":  "train",
+                                          "num_points":  140716,
+                                          "num_instances":  14
+                                      },
+                         "cloudR19":  {
+                                          "split":  "train",
+                                          "num_points":  126866,
+                                          "num_instances":  14
+                                      },
+                         "cloudR21":  {
+                                          "split":  "train",
+                                          "num_points":  141744,
+                                          "num_instances":  11
+                                      },
+                         "cloudR22":  {
+                                          "split":  "train",
+                                          "num_points":  44322,
+                                          "num_instances":  5
+                                      },
+                         "cloudR23":  {
+                                          "split":  "train",
+                                          "num_points":  252127,
+                                          "num_instances":  27
+                                      },
+                         "cloudR3":  {
+                                         "split":  "val",
+                                         "num_points":  193361,
+                                         "num_instances":  15
+                                     },
+                         "cloudR6":  {
+                                         "split":  "val",
+                                         "num_points":  140371,
+                                         "num_instances":  11
+                                     },
+                         "cloudR16":  {
+                                          "split":  "val",
+                                          "num_points":  178769,
+                                          "num_instances":  15
+                                      },
+                         "cloudR20":  {
+                                          "split":  "val",
+                                          "num_points":  182022,
+                                          "num_instances":  19
+                                      },
+                         "cloudR2":  {
+                                         "split":  "test",
+                                         "num_points":  152023,
+                                         "num_instances":  8
+                                     },
+                         "cloudR5":  {
+                                         "split":  "test",
+                                         "num_points":  143382,
+                                         "num_instances":  9
+                                     },
+                         "cloudR9":  {
+                                         "split":  "test",
+                                         "num_points":  271520,
+                                         "num_instances":  20
+                                     },
+                         "cloudR12":  {
+                                          "split":  "test",
+                                          "num_points":  446746,
+                                          "num_instances":  30
+                                      },
+                         "cloudR14":  {
+                                          "split":  "test",
+                                          "num_points":  224349,
+                                          "num_instances":  19
+                                      },
+                         "cloudR18":  {
+                                          "split":  "test",
+                                          "num_points":  137550,
+                                          "num_instances":  16
+                                      }
+                     },
+    "plant_counts":  {
+                         "train":  203,
+                         "val":  60,
+                         "test":  102,
+                         "total":  365
+                     },
+    "notes":  [
+                  "Test and validation plant counts match the paper (102 and 60).",
+                  "The corrected GT contains 365 valid instances, including 203 training plants.",
+                  "All methods must use these exact lists; no test scene may be used for training or model selection."
+              ],
+    "split_totals":  {
+                         "train":  {
+                                       "scenes":  13,
+                                       "plants":  203
+                                   },
+                         "val":  {
+                                     "scenes":  4,
+                                     "plants":  60
+                                 },
+                         "test":  {
+                                      "scenes":  6,
+                                      "plants":  102
+                                  },
+                         "total":  {
+                                       "scenes":  23,
+                                       "plants":  365
+                                   }
+                     }
+}
+

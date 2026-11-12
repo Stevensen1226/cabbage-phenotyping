@@ -1,0 +1,209 @@
+[
+  {
+    "split": "train",
+    "file": "cloudR1.pth",
+    "input_points": 86875,
+    "output_points": 69887,
+    "background": 16849,
+    "cabbage": 53038,
+    "instances": 8
+  },
+  {
+    "split": "train",
+    "file": "cloudR10.pth",
+    "input_points": 444286,
+    "output_points": 391773,
+    "background": 85183,
+    "cabbage": 306590,
+    "instances": 31
+  },
+  {
+    "split": "train",
+    "file": "cloudR11.pth",
+    "input_points": 182726,
+    "output_points": 156121,
+    "background": 32504,
+    "cabbage": 123617,
+    "instances": 15
+  },
+  {
+    "split": "train",
+    "file": "cloudR13.pth",
+    "input_points": 352566,
+    "output_points": 310754,
+    "background": 67070,
+    "cabbage": 243684,
+    "instances": 26
+  },
+  {
+    "split": "train",
+    "file": "cloudR15.pth",
+    "input_points": 485512,
+    "output_points": 405420,
+    "background": 83958,
+    "cabbage": 321462,
+    "instances": 38
+  },
+  {
+    "split": "train",
+    "file": "cloudR17.pth",
+    "input_points": 140716,
+    "output_points": 117216,
+    "background": 30272,
+    "cabbage": 86944,
+    "instances": 14
+  },
+  {
+    "split": "train",
+    "file": "cloudR19.pth",
+    "input_points": 126866,
+    "output_points": 104965,
+    "background": 25973,
+    "cabbage": 78992,
+    "instances": 14
+  },
+  {
+    "split": "train",
+    "file": "cloudR21.pth",
+    "input_points": 146125,
+    "output_points": 106733,
+    "background": 25499,
+    "cabbage": 81234,
+    "instances": 14
+  },
+  {
+    "split": "train",
+    "file": "cloudR22.pth",
+    "input_points": 44322,
+    "output_points": 37340,
+    "background": 3510,
+    "cabbage": 33830,
+    "instances": 5
+  },
+  {
+    "split": "train",
+    "file": "cloudR23.pth",
+    "input_points": 252127,
+    "output_points": 218646,
+    "background": 48027,
+    "cabbage": 170619,
+    "instances": 27
+  },
+  {
+    "split": "train",
+    "file": "cloudR4.pth",
+    "input_points": 168203,
+    "output_points": 117767,
+    "background": 38134,
+    "cabbage": 79633,
+    "instances": 10
+  },
+  {
+    "split": "train",
+    "file": "cloudR7.pth",
+    "input_points": 80739,
+    "output_points": 67571,
+    "background": 24905,
+    "cabbage": 42666,
+    "instances": 8
+  },
+  {
+    "split": "train",
+    "file": "cloudR8.pth",
+    "input_points": 221410,
+    "output_points": 190828,
+    "background": 27616,
+    "cabbage": 163212,
+    "instances": 18
+  },
+  {
+    "split": "val",
+    "file": "cloudR16.pth",
+    "input_points": 178769,
+    "output_points": 155125,
+    "background": 36706,
+    "cabbage": 118419,
+    "instances": 15
+  },
+  {
+    "split": "val",
+    "file": "cloudR20.pth",
+    "input_points": 182022,
+    "output_points": 151775,
+    "background": 41914,
+    "cabbage": 109861,
+    "instances": 19
+  },
+  {
+    "split": "val",
+    "file": "cloudR3.pth",
+    "input_points": 193361,
+    "output_points": 153741,
+    "background": 23433,
+    "cabbage": 130308,
+    "instances": 15
+  },
+  {
+    "split": "val",
+    "file": "cloudR6.pth",
+    "input_points": 140371,
+    "output_points": 120057,
+    "background": 16532,
+    "cabbage": 103525,
+    "instances": 11
+  },
+  {
+    "split": "test",
+    "file": "cloudR12.pth",
+    "input_points": 446746,
+    "output_points": 397653,
+    "background": 85817,
+    "cabbage": 311836,
+    "instances": 30
+  },
+  {
+    "split": "test",
+    "file": "cloudR14.pth",
+    "input_points": 224349,
+    "output_points": 185103,
+    "background": 23585,
+    "cabbage": 161518,
+    "instances": 19
+  },
+  {
+    "split": "test",
+    "file": "cloudR18.pth",
+    "input_points": 137550,
+    "output_points": 103530,
+    "background": 19891,
+    "cabbage": 83639,
+    "instances": 16
+  },
+  {
+    "split": "test",
+    "file": "cloudR2.pth",
+    "input_points": 152023,
+    "output_points": 127124,
+    "background": 64459,
+    "cabbage": 62665,
+    "instances": 8
+  },
+  {
+    "split": "test",
+    "file": "cloudR5.pth",
+    "input_points": 143382,
+    "output_points": 125508,
+    "background": 31917,
+    "cabbage": 93591,
+    "instances": 9
+  },
+  {
+    "split": "test",
+    "file": "cloudR9.pth",
+    "input_points": 271520,
+    "output_points": 236140,
+    "background": 37994,
+    "cabbage": 198146,
+    "instances": 20
+  }
+]

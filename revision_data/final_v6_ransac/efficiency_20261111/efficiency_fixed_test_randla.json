@@ -1,0 +1,172 @@
+{
+  "summary": {
+    "preprocess_ms": {
+      "mean": 116.08436664876838,
+      "std": 61.25140281465213
+    },
+    "semantic_ms": {
+      "mean": 1153.3595833364718,
+      "std": 662.2261783781717
+    },
+    "base_cluster_ms": {
+      "mean": 322.49265000185306,
+      "std": 178.591789380917
+    },
+    "adpv_cluster_ms": {
+      "mean": 499.15063332688686,
+      "std": 307.4302421696242
+    },
+    "adpv_overhead_ms": {
+      "mean": 176.65798332503377,
+      "std": 131.95557072749642
+    },
+    "total_base_ms": {
+      "mean": 1591.9365999870934,
+      "std": 896.5569286654253
+    },
+    "total_adpv_ms": {
+      "mean": 1768.594583312127,
+      "std": 1024.5755616418537
+    },
+    "relative_overhead_pct": {
+      "mean": 10.16809023762809,
+      "std": 3.2240838646390944
+    },
+    "fps_base": {
+      "mean": 0.7716308811810743,
+      "std": 0.32565545751576563
+    },
+    "fps_adpv": {
+      "mean": 0.7064834989902776,
+      "std": 0.31135026070783545
+    },
+    "gpu_peak_mb": {
+      "mean": 5945.956437333334,
+      "std": 339.80137697150303
+    },
+    "n_scenes": 6,
+    "backbone": "randla",
+    "model": "RandLA-Net",
+    "config_adpv": "revision_data/final_v6_ransac/configs/ransac_retrain_20261111/randla_net_watershed_adpv_retrained.yaml",
+    "config_base": "revision_data/final_v6_ransac/configs/ransac_retrain_20261111/randla_net_watershed_base_retrained.yaml",
+    "config_adpv_sha256": "feed360021647bab0f2e05a81e7c72ddf7b4b899162f87e382022863da458ec8",
+    "config_base_sha256": "e109e8f4a9b94bd45b5ca9fcfde1430f4088635d7e6bd84106a31b63ac39c383",
+    "checkpoint_sha256": "1d79145b05a7c5d0da0a2c4dd0e82f6059b05fe6d4e35f1948a0b1febd57df3f"
+  },
+  "per_scene": [
+    {
+      "backbone": "randla",
+      "scene_id": "cloudR2",
+      "n_points": 127124,
+      "n_plant_points": 73813,
+      "base_instances": 6,
+      "adpv_instances": 8,
+      "preprocess_ms": 79.93859995622188,
+      "semantic_ms": 741.976200020872,
+      "base_cluster_ms": 147.82620000187308,
+      "adpv_cluster_ms": 200.07819996681064,
+      "adpv_overhead_ms": 52.25199996493757,
+      "total_base_ms": 969.740999978967,
+      "total_adpv_ms": 1021.9929999439046,
+      "relative_overhead_pct": 5.38824283659976,
+      "fps_base": 1.0312031769531136,
+      "fps_adpv": 0.9784802831867618,
+      "gpu_peak_mb": 6084.48768
+    },
+    {
+      "backbone": "randla",
+      "scene_id": "cloudR5",
+      "n_points": 125508,
+      "n_plant_points": 104017,
+      "base_instances": 9,
+      "adpv_instances": 9,
+      "preprocess_ms": 71.95579999824986,
+      "semantic_ms": 739.9647000129335,
+      "base_cluster_ms": 181.13280000397936,
+      "adpv_cluster_ms": 270.7947000162676,
+      "adpv_overhead_ms": 89.66190001228824,
+      "total_base_ms": 993.0533000151627,
+      "total_adpv_ms": 1082.715200027451,
+      "relative_overhead_pct": 9.028911138094927,
+      "fps_base": 1.0069952941949152,
+      "fps_adpv": 0.9236039172394054,
+      "gpu_peak_mb": 6084.48768
+    },
+    {
+      "backbone": "randla",
+      "scene_id": "cloudR9",
+      "n_points": 236140,
+      "n_plant_points": 217044,
+      "base_instances": 17,
+      "adpv_instances": 23,
+      "preprocess_ms": 135.29119995655492,
+      "semantic_ms": 1392.3183999722824,
+      "base_cluster_ms": 379.62149997474626,
+      "adpv_cluster_ms": 663.357499986887,
+      "adpv_overhead_ms": 283.7360000121407,
+      "total_base_ms": 1907.2310999035835,
+      "total_adpv_ms": 2190.9670999157242,
+      "relative_overhead_pct": 14.876854725496269,
+      "fps_base": 0.5243203091909276,
+      "fps_adpv": 0.4564194505880372,
+      "gpu_peak_mb": 6084.48768
+    },
+    {
+      "backbone": "randla",
+      "scene_id": "cloudR12",
+      "n_points": 397653,
+      "n_plant_points": 349371,
+      "base_instances": 20,
+      "adpv_instances": 30,
+      "preprocess_ms": 229.32770004263148,
+      "semantic_ms": 2369.223600020632,
+      "base_cluster_ms": 633.88420001138,
+      "adpv_cluster_ms": 1017.8037000005133,
+      "adpv_overhead_ms": 383.9194999891333,
+      "total_base_ms": 3232.4355000746436,
+      "total_adpv_ms": 3616.355000063777,
+      "relative_overhead_pct": 11.877097005656195,
+      "fps_base": 0.30936425490219616,
+      "fps_adpv": 0.27652152512194306,
+      "gpu_peak_mb": 6085.44768
+    },
+    {
+      "backbone": "randla",
+      "scene_id": "cloudR14",
+      "n_points": 185103,
+      "n_plant_points": 174440,
+      "base_instances": 14,
+      "adpv_instances": 18,
+      "preprocess_ms": 111.79909994825721,
+      "semantic_ms": 1081.9365999777801,
+      "base_cluster_ms": 356.9825000013225,
+      "adpv_cluster_ms": 528.51340000052,
+      "adpv_overhead_ms": 171.53089999919757,
+      "total_base_ms": 1550.7181999273598,
+      "total_adpv_ms": 1722.2490999265574,
+      "relative_overhead_pct": 11.061384331932944,
+      "fps_base": 0.6448624901976664,
+      "fps_adpv": 0.5806360996458895,
+      "gpu_peak_mb": 6084.48768
+    },
+    {
+      "backbone": "randla",
+      "scene_id": "cloudR18",
+      "n_points": 103530,
+      "n_plant_points": 89434,
+      "base_instances": 8,
+      "adpv_instances": 15,
+      "preprocess_ms": 68.19379999069497,
+      "semantic_ms": 594.7380000143312,
+      "base_cluster_ms": 235.50870001781732,
+      "adpv_cluster_ms": 314.35629999032244,
+      "adpv_overhead_ms": 78.84759997250512,
+      "total_base_ms": 898.4405000228435,
+      "total_adpv_ms": 977.2880999953486,
+      "relative_overhead_pct": 8.77605138798845,
+      "fps_base": 1.1130397616476264,
+      "fps_adpv": 1.023239718159629,
+      "gpu_peak_mb": 5252.340224
+    }
+  ]
+}

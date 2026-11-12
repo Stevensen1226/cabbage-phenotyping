@@ -1,0 +1,14 @@
+\begin{table}
+\caption{Full-pipeline efficiency on the fixed test cohort with the complete ADPV path including KNN-R.}
+\label{tab:efficiency}
+\begin{tabular}{lrrrrrrrr}
+\toprule
+model & Semantic\_ms & Clustering\_ms & ADPV\_overhead\_ms & Total\_ADPV\_ms & Overhead\_pct & FPS\_Base & FPS\_ADPV & GPU\_MB \\
+\midrule
+RandLA-Net & 1153.360 & 322.493 & 176.658 & 1768.595 & 10.168 & 0.772 & 0.706 & 5945.956 \\
+PointNet2-RGB & 925.088 & 298.858 & 149.464 & 1490.204 & 10.134 & 0.863 & 0.791 & 6286.686 \\
+PointNeXt-L & 1593.535 & 292.387 & 117.586 & 2119.715 & 5.333 & 0.549 & 0.524 & 430.506 \\
+PointGroup & 713.942 & 340.773 & 170.632 & 1340.430 & 14.822 & 1.215 & 1.064 & 840.217 \\
+\bottomrule
+\end{tabular}
+\end{table}

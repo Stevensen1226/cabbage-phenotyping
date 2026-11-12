@@ -1,0 +1,5 @@
+model,gt_plants,base_matched,adpv_matched,paired_plants,paired_plants_in_registry
+RandLA-Net,102,50,85,50,50
+PointNet2-RGB,102,45,91,45,45
+PointNeXt-L,102,36,73,36,36
+PointGroup,102,36,87,36,36

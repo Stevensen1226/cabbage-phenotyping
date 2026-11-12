@@ -1,0 +1,40 @@
+{
+  "started": "2026-11-11 20:48:54",
+  "models": [
+    "RandLA-Net",
+    "PointNet2-RGB",
+    "PointNeXt-L",
+    "PointGroup"
+  ],
+  "refs": [
+    "base",
+    "adpv"
+  ],
+  "scenes": [
+    "cloudR2",
+    "cloudR5",
+    "cloudR9",
+    "cloudR12",
+    "cloudR14",
+    "cloudR18"
+  ],
+  "configs": {
+    "RandLA-Net": {
+      "base": "E:\\Cabbage\\revision_data\\final_v6_ransac\\configs\\ransac_retrain_20261111\\randla_net_watershed_base_retrained.yaml",
+      "adpv": "E:\\Cabbage\\revision_data\\final_v6_ransac\\configs\\ransac_retrain_20261111\\randla_net_watershed_adpv_retrained.yaml"
+    },
+    "PointNet2-RGB": {
+      "base": "E:\\Cabbage\\revision_data\\final_v6_ransac\\configs\\pointnet2_rgb_watershed_base_v6.yaml",
+      "adpv": "E:\\Cabbage\\revision_data\\final_v6_ransac\\configs\\pointnet2_rgb_watershed_adpv_v6.yaml"
+    },
+    "PointNeXt-L": {
+      "base": "E:\\Cabbage\\revision_data\\final_v6_ransac\\configs\\ransac_retrain_20261111\\pointnext_l_watershed_base_retrained.yaml",
+      "adpv": "E:\\Cabbage\\revision_data\\final_v6_ransac\\configs\\ransac_retrain_20261111\\pointnext_l_watershed_adpv_retrained.yaml"
+    },
+    "PointGroup": {
+      "base": "E:\\Cabbage\\revision_data\\final_v6_ransac\\configs\\pointgroup_watershed_base_v6.yaml",
+      "adpv": "E:\\Cabbage\\revision_data\\final_v6_ransac\\configs\\pointgroup_watershed_adpv_v6.yaml"
+    }
+  },
+  "out_dir": "E:\\Cabbage\\revision_data\\final_v6_ransac\\paired_rerun_20261111\\raw_traits"
+}

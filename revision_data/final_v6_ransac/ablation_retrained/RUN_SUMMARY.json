@@ -1,0 +1,41 @@
+{
+  "generated_at": "2026-11-11 20:34:16",
+  "config_dir": "E:\\Cabbage\\revision_data\\final_v6_ransac\\configs\\ransac_retrain_20261111\\ablation_v2",
+  "splits": {
+    "val": {
+      "data_dir": "E:\\Cabbage\\revision_data\\evalaute_test",
+      "scenes": [
+        "cloudR3",
+        "cloudR6",
+        "cloudR16",
+        "cloudR20"
+      ]
+    },
+    "test": {
+      "data_dir": "E:\\Cabbage\\revision_data\\evalaute_test_v2",
+      "scenes": [
+        "cloudR2",
+        "cloudR5",
+        "cloudR9",
+        "cloudR12",
+        "cloudR14",
+        "cloudR18"
+      ]
+    }
+  },
+  "states": {
+    "base": "Base",
+    "split_only": "Split only",
+    "full": "Split+merge"
+  },
+  "checkpoints": {
+    "PointNeXt-L": "E:\\Cabbage\\revision_data\\runs\\ransac_retrain_20261111\\pointnext_final\\best.pth",
+    "PointGroup": "E:\\Cabbage\\revision_data\\runs\\retrain_v4\\pointgroup\\best.pth"
+  },
+  "rows": 60,
+  "outputs": {
+    "scene_metrics": "E:\\Cabbage\\revision_data\\final_v6_ransac\\ablation_retrained\\ablation_scene_metrics.csv",
+    "summary": "E:\\Cabbage\\revision_data\\final_v6_ransac\\ablation_retrained\\ablation_summary.csv",
+    "deltas": "E:\\Cabbage\\revision_data\\final_v6_ransac\\ablation_retrained\\ablation_deltas.csv"
+  }
+}

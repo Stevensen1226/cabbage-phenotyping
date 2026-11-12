@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-11-12",
+  "primary_configs": 18,
+  "hdbscan_configs": 8,
+  "total_configs": 26,
+  "scene_rows": 156,
+  "plant_mapping_rows": 2652,
+  "models": [
+    "PointGroup",
+    "PointNeXt-L",
+    "PointNet2-RGB",
+    "RandLA-Net"
+  ],
+  "clusterings": [
+    "hdbscan",
+    "meanshift",
+    "native",
+    "watershed"
+  ]
+}

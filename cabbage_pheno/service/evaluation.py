@@ -129,35 +129,52 @@ def compute_iou_semantic(pred, gt, num_classes=2):
 
 
 def get_instance_matches(pred_inst, gt_inst, iou_thresh=0.5):
+    """Match predicted and GT instances using a sparse contingency matrix.
+
+    This is numerically equivalent to the former per-prediction loop but avoids
+    repeated full-array scans for every candidate pair.
+    """
+    pred_inst = np.asarray(pred_inst)
+    gt_inst = np.asarray(gt_inst)
     pred_ids = np.unique(pred_inst)
     pred_ids = pred_ids[pred_ids > 0]
-
     gt_ids = np.unique(gt_inst)
     gt_ids = gt_ids[gt_ids > 0]
 
+    if len(pred_ids) == 0 or len(gt_ids) == 0:
+        return [], len(pred_ids), len(gt_ids)
+
+    pred_mask = pred_inst > 0
+    gt_mask = gt_inst > 0
+    both = pred_mask & gt_mask
+    pred_index = np.searchsorted(pred_ids, pred_inst[both])
+    gt_index = np.searchsorted(gt_ids, gt_inst[both])
+    gt_count = len(gt_ids)
+
+    intersections = np.bincount(
+        pred_index * gt_count + gt_index,
+        minlength=len(pred_ids) * gt_count,
+    ).reshape(len(pred_ids), gt_count)
+    pred_area = np.bincount(
+        np.searchsorted(pred_ids, pred_inst[pred_mask]), minlength=len(pred_ids)
+    )
+    gt_area = np.bincount(
+        np.searchsorted(gt_ids, gt_inst[gt_mask]), minlength=gt_count
+    )
+    unions = pred_area[:, None] + gt_area[None, :] - intersections
+    ious = np.divide(
+        intersections,
+        unions,
+        out=np.zeros_like(intersections, dtype=np.float64),
+        where=unions > 0,
+    )
+
     matches = []
     matched_gt = set()
-
-    for pid in pred_ids:
-        p_mask = pred_inst == pid
-        p_area = p_mask.sum()
-        best_iou = 0
-        best_gid = -1
-
-        gt_under_pred = gt_inst[p_mask]
-        candidate_gids = np.unique(gt_under_pred)
-        candidate_gids = candidate_gids[candidate_gids > 0]
-
-        for gid in candidate_gids:
-            g_mask = gt_inst == gid
-            g_area = g_mask.sum()
-            intersection = np.sum(gt_under_pred == gid)
-            union = p_area + g_area - intersection
-            iou = intersection / union
-            if iou > best_iou:
-                best_iou = iou
-                best_gid = gid
-
+    for row, pid in enumerate(pred_ids):
+        best_col = int(np.argmax(ious[row]))
+        best_iou = float(ious[row, best_col])
+        best_gid = gt_ids[best_col]
         if best_iou >= iou_thresh and best_gid not in matched_gt:
             matches.append((pid, best_gid, best_iou))
             matched_gt.add(best_gid)
@@ -306,13 +323,19 @@ def run_evaluation(args) -> Dict[str, Any]:
 
     seg_method = cfg.get('segmentation', {}).get('method', 'hybrid')
     backbone = cfg.get('segmentation', {}).get('backbone', 'pointnet2')
-    _needs_pg = seg_method in ('hybrid', 'softgroup', 'pointgroup', 'iach')
+    _needs_pg = seg_method in ('hybrid', 'softgroup', 'pointgroup', 'iach') or backbone == 'pointgroup'
     _needs_hais = seg_method == 'hais'
+    proj_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     _needs_randlanet = (backbone == 'randlanet' and seg_method == 'clustering')
+    _needs_pointnet2_rgb = (backbone == 'pointnet2_rgb' and seg_method == 'clustering')
+    _needs_pointnext = (backbone == 'pointnext' and seg_method == 'clustering')
     pointgroup_segment = pointgroup_segment_blocks = _iach_cluster = None
     _pointgroup_forward = _load_pointgroup = _post_semantic_filter = None
     hais_segment = hais_segment_blocks = None
     randlanet_model = None
+    pointnet2_rgb_model = None
+    pointnext_adapter = None
+    pointgroup_bundle = None
 
     if _needs_pg:
         try:
@@ -343,7 +366,11 @@ def run_evaluation(args) -> Dict[str, Any]:
             sys.path.insert(0, os.path.join(proj_root, 'RandLANet_Ours'))
             from randlanet import RandLANet as RLAModel
             randlanet_model = RLAModel(d_in=6, num_classes=2).cuda()
-            ckpt = os.path.join(proj_root, 'RandLANet_Ours', 'exp', 'randlanet', 'best.pth')
+            ckpt = cfg.get('segmentation', {}).get('randlanet_checkpoint')
+            if not ckpt:
+                ckpt = os.path.join(proj_root, 'RandLANet_Ours', 'exp', 'randlanet', 'best.pth')
+            elif not os.path.isabs(ckpt):
+                ckpt = os.path.join(proj_root, ckpt)
             state = torch.load(ckpt, map_location='cuda')
             randlanet_model.load_state_dict(state['model'])
             randlanet_model.eval()
@@ -352,8 +379,56 @@ def run_evaluation(args) -> Dict[str, Any]:
             logger.error(f'Failed to load RandLA-Net: {e}')
             randlanet_model = None
 
+    if _needs_pointnet2_rgb:
+        try:
+            import torch
+            from cabbage_pheno.segmentation.pointnet2_model import PointNet2SemSeg
+            pointnet2_rgb_model = PointNet2SemSeg(2, additional_channel=3).cuda().eval()
+            ckpt = cfg.get('segmentation', {}).get('pointnet2_checkpoint')
+            if not ckpt:
+                raise ValueError('segmentation.pointnet2_checkpoint is required')
+            if not os.path.isabs(ckpt):
+                ckpt = os.path.join(proj_root, ckpt)
+            state = torch.load(ckpt, map_location='cuda', weights_only=False)
+            if isinstance(state, dict) and 'model' in state:
+                state = state['model']
+            pointnet2_rgb_model.load_state_dict(state)
+            logger.info(f'PointNet2-RGB model loaded: {ckpt}')
+        except Exception as e:
+            logger.error(f'Failed to load PointNet2-RGB: {e}')
+            pointnet2_rgb_model = None
+
+    if _needs_pointnext:
+        try:
+            from cabbage_pheno.segmentation.pointnext_adapter import PointNeXtAdapter
+            pointnext_adapter = PointNeXtAdapter(cfg)
+            logger.info('PointNeXt-L model loaded for evaluation')
+        except Exception as e:
+            logger.error(f'Failed to load PointNeXt-L: {e}')
+            pointnext_adapter = None
+
+    if backbone == 'pointgroup' and seg_method == 'clustering' and _load_pointgroup is not None:
+        try:
+            pointgroup_bundle = _load_pointgroup(cfg)
+            logger.info('PointGroup semantic model loaded for clustering evaluation')
+        except Exception as e:
+            logger.error(f'Failed to load PointGroup semantic model: {e}')
+            pointgroup_bundle = None
+
     for file_path in tqdm(input_files, desc='Processing'):
         logger.info(f'--- {os.path.basename(file_path)} ---')
+
+        # Reset the RNG for every scene.  This matches the per-plant trait
+        # exporter and makes each scene independently reproducible regardless
+        # of scene order.
+        if seed is not None:
+            np.random.seed(seed)
+            try:
+                import torch as _torch
+                _torch.manual_seed(seed)
+                _torch.cuda.manual_seed_all(seed)
+            except Exception:
+                pass
 
         pcd = read_point_cloud(file_path)
         if pcd is None:
@@ -400,7 +475,49 @@ def run_evaluation(args) -> Dict[str, Any]:
 
             # --- 不需要 PointGroup 导入的模式 ---
             if seg_method in ('clustering', 'none'):
-                if backbone == 'randlanet' and randlanet_model is not None:
+                if backbone == 'pointnet2_rgb' and pointnet2_rgb_model is not None:
+                    import torch as _torch
+                    xyz = np.asarray(non_ground_pcd.points, dtype=np.float32)
+                    rgb_orig = np.asarray(non_ground_pcd.colors, dtype=np.float32) if len(non_ground_pcd.colors) > 0 else np.ones_like(xyz)
+                    rgb = (rgb_orig * 2.0 - 1.0).astype(np.float32)
+                    N = len(xyz)
+                    mask = np.zeros(N, dtype=bool)
+                    CHUNK = 120000
+                    for start in range(0, N, CHUNK):
+                        end = min(start + CHUNK, N)
+                        with _torch.no_grad():
+                            out = pointnet2_rgb_model(
+                                _torch.from_numpy(xyz[start:end].T).unsqueeze(0).cuda(),
+                                _torch.from_numpy(rgb[start:end].T).unsqueeze(0).cuda())[0]
+                        mask[start:end] = out[0].argmax(0).cpu().numpy() == 1
+                    cabbage_pts = xyz[mask]
+                    cabbage_pcd = o3d.geometry.PointCloud()
+                    cabbage_pcd.points = o3d.utility.Vector3dVector(cabbage_pts)
+                    cabbage_pcd.colors = o3d.utility.Vector3dVector(rgb_orig[mask])
+                elif backbone == 'pointnext' and pointnext_adapter is not None:
+                    xyz = np.asarray(non_ground_pcd.points, dtype=np.float32)
+                    rgb_orig = np.asarray(non_ground_pcd.colors, dtype=np.float32) if len(non_ground_pcd.colors) > 0 else np.ones_like(xyz)
+                    mask = pointnext_adapter.predict_mask(xyz, rgb_orig)
+                    cabbage_pts = xyz[mask]
+                    cabbage_pcd = o3d.geometry.PointCloud()
+                    cabbage_pcd.points = o3d.utility.Vector3dVector(cabbage_pts)
+                    cabbage_pcd.colors = o3d.utility.Vector3dVector(rgb_orig[mask])
+                    logger.info(f'PointNeXt semantic: {mask.sum():,}/{len(xyz):,} cabbage pts')
+                elif backbone == 'pointgroup' and pointgroup_bundle is not None:
+                    import torch as _torch
+                    xyz = np.asarray(non_ground_pcd.points, dtype=np.float32)
+                    rgb_orig = np.asarray(non_ground_pcd.colors, dtype=np.float32) if len(non_ground_pcd.colors) > 0 else np.ones_like(xyz)
+                    pg_model, pg_model_fn, pg_cfg, pg_seg_cfg, pgo = pointgroup_bundle
+                    semantic_scores, _, _, _, _ = _pointgroup_forward(
+                        xyz - xyz.min(0), (rgb_orig * 2.0 - 1.0).astype(np.float32),
+                        pg_model, pg_model_fn, pg_cfg, pgo)
+                    mask = semantic_scores.argmax(1).cpu().numpy() == 1
+                    cabbage_pts = xyz[mask]
+                    cabbage_pcd = o3d.geometry.PointCloud()
+                    cabbage_pcd.points = o3d.utility.Vector3dVector(cabbage_pts)
+                    cabbage_pcd.colors = o3d.utility.Vector3dVector(rgb_orig[mask])
+                    logger.info(f'PointGroup semantic: {mask.sum():,}/{len(xyz):,} cabbage pts')
+                elif backbone == 'randlanet' and randlanet_model is not None:
                     # RandLA-Net 语义推理 (分块，每块最多 120K 点防 OOM)
                     import torch as _torch
                     xyz = np.asarray(non_ground_pcd.points, dtype=np.float32)
@@ -599,7 +716,10 @@ def run_evaluation(args) -> Dict[str, Any]:
 
                 if cfg.get('instance', {}).get('fragment_voting', {}).get('enable', False):
                     try:
-                        labels_s3 = clusterer._cleanup_tiny_fragments(labels_s3, cabbage_pts)
+                        if getattr(clusterer, 'vote_mode', 'centroid') == 'knn_weighted':
+                            labels_s3 = clusterer._reassign_fragments_knn(labels_s3, cabbage_pts)
+                        else:
+                            labels_s3 = clusterer._cleanup_tiny_fragments(labels_s3, cabbage_pts)
                     except Exception:
                         pass
 

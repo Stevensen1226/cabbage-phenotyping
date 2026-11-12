@@ -1,0 +1,4 @@
+split,scenes,plants,semantic_invalid_points,gt_sources,pth_fallbacks
+train,13,203,0,manual_gt,0
+val,4,60,0,manual_gt,0
+test,6,102,0,manual_gt,0
